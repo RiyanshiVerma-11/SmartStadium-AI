@@ -6,54 +6,49 @@
     <title>Stadium Companion</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
-        .dark .glass { background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .emergency-mode { background: #ef4444 !important; color: white !important; animation: pulseRed 1s infinite alternate; }
-        @keyframes pulseRed { 0% { background: #dc2626; box-shadow: inset 0 0 50px rgba(0,0,0,0.5); } 100% { background: #7f1d1d; } }
-        /* Smooth transitions for active states */
-        .slide-up { animation: slideUp 0.3s ease-out forwards;  }
+        .glass { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(10px); }
+        .dark .glass { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .emergency-mode { background: #dc2626 !important; color: white !important; animation: pulseRed 1s infinite alternate; }
+        .slide-up { animation: slideUp 0.25s ease-out forwards; }
+        .bot-shell { touch-action: none; }
+        .bot-shell.dragging { cursor: grabbing; }
+        .bot-handle { cursor: grab; }
+        @keyframes pulseRed { 0% { background: #dc2626; } 100% { background: #7f1d1d; } }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300 selection:bg-blue-500/30">
-    
-    <!-- Offline Fallback Banner -->
-    <div id="offline-banner" class="hidden absolute top-0 w-full z-[200] bg-orange-500 text-white font-bold p-3 text-center shadow-lg text-sm flex justify-center items-center gap-2">
-        <span class="animate-pulse">⚠️ Low Network Signal. Offline Edge Mode / SMS Fallback Active.</span>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
+    <div id="offline-banner" class="hidden absolute top-0 w-full z-[200] bg-orange-500 text-white font-bold p-3 text-center shadow-lg text-sm">
+        Low network signal. Offline edge mode fallback active.
     </div>
 
-    <!-- Emergency Lockdown Screen -->
     <div id="emergency-overlay" class="hidden absolute inset-0 z-[300] emergency-mode flex flex-col items-center justify-center p-6 text-center">
-        <div class="text-7xl mb-4 animate-bounce">🚨</div>
+        <div class="text-6xl font-black mb-4">!</div>
         <h1 class="text-4xl font-black mb-2 uppercase tracking-widest">Evacuate</h1>
-        <p class="text-xl font-medium mb-8">Follow staff instructions immediately. Proceed to the nearest safe exit.</p>
+        <p class="text-lg font-medium mb-8">Follow staff instructions immediately and proceed to the nearest safe exit.</p>
         <div class="bg-white/20 p-6 rounded-2xl border border-white/40 shadow-xl backdrop-blur-md">
-            <h3 class="text-sm uppercase tracking-widest font-bold mb-4 opacity-80 shadow-black drop-shadow-md">AI Safe Route Generated</h3>
+            <h3 class="text-sm uppercase tracking-widest font-bold mb-4 opacity-80">Safe route</h3>
             <div class="text-2xl font-black bg-white text-red-600 py-3 px-6 rounded-full shadow-2xl animate-pulse">
-                SEC-G → EAST EXITS
+                Gate C to East Exits
             </div>
         </div>
     </div>
 
     <div class="max-w-md mx-auto min-h-screen relative shadow-2xl bg-white dark:bg-slate-950 flex flex-col overflow-hidden">
-        
-        <!-- Tickets Modal (Hidden initially) -->
         <div id="ticket-modal" class="hidden absolute inset-0 z-[150] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-6">
             <div class="bg-white dark:bg-slate-800 rounded-3xl w-full p-6 shadow-2xl transform slide-up relative border border-slate-200 dark:border-slate-700">
-                <button onclick="document.getElementById('ticket-modal').classList.add('hidden')" class="absolute top-4 right-4 bg-gray-100 dark:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center text-gray-500 font-bold hover:bg-gray-200 transition-colors">✕</button>
+                <button onclick="document.getElementById('ticket-modal').classList.add('hidden')" class="absolute top-4 right-4 bg-gray-100 dark:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center text-gray-500 font-bold hover:bg-gray-200 transition-colors">X</button>
                 <h2 class="text-xl font-bold mb-4 text-center">Your VIP Ticket</h2>
                 <div class="bg-gray-100 dark:bg-slate-900 rounded-xl p-4 flex flex-col items-center justify-center border border-dashed border-gray-300 dark:border-slate-600 mb-6 shadow-inner">
-                    <!-- Real Mock QR Code via API -->
                     <div class="w-48 h-48 bg-white p-2 rounded shadow-md flex items-center justify-center">
-                       <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SMARTSTADIUM_VIP_TICKET_SEC112" class="w-full h-full mix-blend-multiply opacity-95" alt="QR Code">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SMARTSTADIUM_VIP_TICKET_SEC112" class="w-full h-full mix-blend-multiply opacity-95" alt="QR Code">
                     </div>
-                    <p class="font-mono text-gray-600 dark:text-gray-400 mt-4 text-sm tracking-widest font-bold">SEC 112 • ROW F • SEAT 4</p>
+                    <p class="font-mono text-gray-600 dark:text-gray-400 mt-4 text-sm tracking-widest font-bold">SEC 112 | ROW F | SEAT 4</p>
                 </div>
-                <button class="w-full bg-slate-900 dark:bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-black transition shadow-lg active:scale-95" onclick="showToast('📱', 'Success', 'Ticket verified via NFC.')">Tap to Scan</button>
+                <button class="w-full bg-slate-900 dark:bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-black transition shadow-lg active:scale-95" onclick="showToast('Ticket Ready', 'VIP pass verified successfully.')">Tap to Scan</button>
             </div>
         </div>
 
-        <!-- Order Menu Bottom Sheet (Hidden initially) -->
         <div id="order-sheet" class="hidden absolute inset-0 z-[150] bg-black/40 backdrop-blur-sm flex items-end">
             <div class="bg-white dark:bg-slate-900 w-full rounded-t-3xl p-6 shadow-2xl relative slide-up border-t border-slate-200 dark:border-slate-700">
                 <div class="w-12 h-1.5 bg-gray-300 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
@@ -62,106 +57,121 @@
                 <div class="space-y-4 mb-6">
                     <div class="flex justify-between items-center p-4 bg-gray-50 dark:bg-slate-800/80 rounded-xl border border-gray-100 dark:border-slate-700 hover:border-blue-500 transition-colors">
                         <div>
-                            <h4 class="font-bold flex items-center gap-2">Stadium Hot Dog 🌭 <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-bold">Fast</span></h4>
+                            <h4 class="font-bold flex items-center gap-2">Stadium Hot Dog <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-bold">Fast</span></h4>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Classic all-beef frank</p>
                         </div>
                         <button class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition-transform" onclick="addToCart(6.50)">+$6.50</button>
                     </div>
                     <div class="flex justify-between items-center p-4 bg-gray-50 dark:bg-slate-800/80 rounded-xl border border-gray-100 dark:border-slate-700 hover:border-blue-500 transition-colors">
                         <div>
-                            <h4 class="font-bold flex items-center gap-2">Craft IPA Beer 🍺</h4>
+                            <h4 class="font-bold flex items-center gap-2">Craft IPA Beer</h4>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Must show ID at pickup</p>
                         </div>
                         <button class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition-transform" onclick="addToCart(12.00)">+$12.00</button>
                     </div>
                 </div>
-                <!-- Delivery info -->
-                <p class="text-xs text-center text-emerald-600 dark:text-emerald-400 font-bold mb-4 flex items-center justify-center gap-1">
-                    <span class="animate-pulse">📍</span> Delivering directly to SEC 112 (5-8 mins)
-                </p>
-                <button id="checkout-btn" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 active:scale-95 disabled:opacity-50" onclick="submitOrder()">Checkout • $0.00</button>
-            </div>
-        </div>
-
-        <!-- Voice AI Simulation Modal (Hidden initially) -->
-        <div id="voice-modal" class="hidden absolute inset-0 z-[150] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-end pb-24">
-            <div class="bg-white dark:bg-slate-900 rounded-3xl w-11/12 p-6 shadow-[0_0_40px_rgba(59,130,246,0.3)] transform slide-up relative border border-blue-500/30 flex flex-col items-center text-center">
-                <button onclick="document.getElementById('voice-modal').classList.add('hidden')" class="absolute top-4 right-4 text-xs font-bold text-gray-400 hover:text-white bg-gray-100 dark:bg-gray-800 rounded-full w-7 h-7 flex items-center justify-center transition-colors">✕</button>
-                
-                <div class="relative w-20 h-20 mb-6 flex items-center justify-center">
-                    <div class="absolute inset-0 bg-blue-500/20 rounded-full animate-ping z-0"></div>
-                    <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-3xl shadow-[0_0_20px_rgba(37,99,235,0.6)] animate-pulse z-10 text-white">
-                        🎤
+                <div class="mb-5 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-white p-4 dark:border-amber-700/30 dark:from-amber-950/30 dark:via-slate-900 dark:to-slate-900">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-[0.24em] text-amber-600 dark:text-amber-300">Flow Rewards</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-800 dark:text-white">Use your points for instant concessions discounts.</p>
+                        </div>
+                        <div class="rounded-2xl bg-amber-500 px-3 py-2 text-center text-white shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.22em] opacity-80">Balance</p>
+                            <p class="text-sm font-black"><span id="order-points-balance">240</span> PTR</p>
+                        </div>
                     </div>
+                    <div class="mt-3 grid grid-cols-2 gap-2">
+                        <button id="reward-discount-small" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left transition hover:border-amber-500 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" onclick="redeemReward('discount_small')">
+                            <p class="text-xs font-bold uppercase tracking-[0.22em] text-amber-600 dark:text-amber-300">$2 Off</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-800 dark:text-white">Cost: 120 PTR</p>
+                        </button>
+                        <button id="reward-discount-large" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left transition hover:border-amber-500 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" onclick="redeemReward('discount_large')">
+                            <p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">$5 Off</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-800 dark:text-white">Cost: 260 PTR</p>
+                        </button>
+                    </div>
+                    <p id="reward-status" class="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">Redeem points to lower your checkout total instantly.</p>
                 </div>
-
-                <h3 class="font-black text-xl mb-1 tracking-tight">Actively Listening...</h3>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-6 font-mono tracking-wide uppercase">Select a simulated voice query below:</p>
-
-                <div class="flex flex-col gap-3 w-full">
-                    <button class="bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 text-sm font-bold py-3.5 px-4 rounded-xl transition-all text-left flex items-center justify-between group active:scale-95" onclick="triggerSimulatedAI('Find the least crowded gate.')">
-                        <span class="text-slate-700 dark:text-slate-200">"Find the least crowded gate."</span>
-                        <span class="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity font-xl">→</span>
-                    </button>
-                    <button class="bg-slate-50 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/40 border border-slate-200 dark:border-slate-700 hover:border-red-500 dark:hover:border-red-500 text-sm font-bold py-3.5 px-4 rounded-xl transition-all text-left flex items-center justify-between group active:scale-95" onclick="triggerSimulatedAI('I lost my child near section 112.')">
-                        <span class="text-slate-700 dark:text-slate-200">"I lost my child near Sec 112."</span>
-                        <span class="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity font-xl">🚨</span>
-                    </button>
-                </div>
+                <p class="text-xs text-center text-emerald-600 dark:text-emerald-400 font-bold mb-4">Delivering directly to SEC 112 in 5 to 8 minutes</p>
+                <button id="checkout-btn" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 active:scale-95" onclick="submitOrder()">Checkout | $0.00</button>
             </div>
         </div>
 
-        <!-- Header -->
-        <header class="glass sticky top-0 z-50 px-6 py-5 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center transition-all shadow-sm" id="main-header">
+        <header class="glass sticky top-0 z-50 px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shadow-sm" id="main-header">
             <div>
-                <h1 class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-indigo-500">Stadium<span class="font-light text-slate-500 dark:text-slate-400">Flow</span></h1>
-                <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-1" id="live-indicator">
+                <h1 class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-cyan-500">Stadium<span class="font-light text-slate-500 dark:text-slate-400">Flow</span></h1>
+                <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-1 uppercase tracking-widest" id="live-indicator">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping absolute"></span>
                     <span class="w-2 h-2 rounded-full bg-emerald-500 relative"></span>
                     Live Sync
                 </p>
             </div>
-            
             <div class="flex items-center gap-3">
-                <!-- Gamification Points -->
-                <div class="flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-600/50 px-3 py-1.5 rounded-full shadow-sm cursor-pointer hover:bg-amber-200 transition-colors" onclick="showToast('🏆', 'Flow Points', 'Redeem points for merch or food discounts!')">
-                    <span>🏆</span>
+                <div class="flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-600/50 px-3 py-1.5 rounded-full shadow-sm">
                     <span class="text-xs font-bold text-amber-700 dark:text-amber-400" id="flow-points">240</span>
+                    <span class="text-xs font-bold text-amber-700 dark:text-amber-400">PTR</span>
                 </div>
                 <a href="/" class="text-sm px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm text-slate-500">Exit</a>
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="flex-1 p-6 overflow-y-auto space-y-6 pb-24 scroll-smooth">
-            
-            <!-- AI Virtual Assistant -->
-            <div id="ai-module" class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden group transition-all duration-300 transform">
-                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all"></div>
-                <div class="flex items-start gap-4 relative z-10">
-                    <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0 shadow-inner backdrop-blur-md text-2xl transition-transform" id="ai-icon">
-                        🤖
-                    </div>
-                    <div class="flex-1 text-left">
-                        <h2 class="font-bold text-lg leading-tight mb-1">Your AI Guide</h2>
-                        <p class="text-indigo-50 text-sm leading-relaxed tracking-wide font-medium" id="ai-chat">"Hello! Synchronizing your stadium experience..."</p>
-                        
-                        <!-- AI Explanation Layer -->
-                        <div class="mt-3 bg-black/20 p-2.5 rounded-lg border border-white/10 flex items-start gap-2 shadow-inner transition-opacity">
-                             <div class="opacity-70 text-[10px] mt-0.5">🧠</div>
-                             <p class="text-[11px] text-indigo-100 font-mono tracking-tight leading-relaxed uppercase opacity-80" id="ai-reason">Algorithm initialized. Scanning crowd flows...</p>
+        <main class="flex-1 p-6 overflow-y-auto space-y-6 pb-24">
+            <div id="ai-module" class="bot-shell hidden absolute right-4 top-24 z-[120] w-[min(22rem,calc(100%-2rem))] rounded-3xl border border-sky-300/40 bg-white/95 text-slate-900 shadow-[0_24px_60px_rgba(14,116,144,0.22)] backdrop-blur-xl transition-all duration-300 dark:border-sky-500/20 dark:bg-slate-900/95 dark:text-slate-100">
+                <div id="ai-handle" class="bot-handle flex items-center justify-between gap-3 rounded-t-3xl bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-3 text-white">
+                    <div class="flex items-center gap-3">
+                        <div id="ai-icon" class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 text-sm font-black shadow-inner">AI</div>
+                        <div>
+                            <p class="text-sm font-black">Stadium AI Bot</p>
+                            <p class="text-[10px] uppercase tracking-[0.25em] text-sky-100/80">Drag me anywhere</p>
                         </div>
+                    </div>
+                    <span id="scenario-pill" class="rounded-full bg-white/15 px-2 py-1 text-[10px] uppercase tracking-[0.25em]">Normal</span>
+                </div>
+
+                <div class="space-y-3 p-4">
+                    <div id="ai-conversation" class="max-h-60 space-y-3 overflow-y-auto rounded-2xl bg-slate-50 p-3 dark:bg-slate-950/70">
+                        <div class="flex justify-start">
+                            <div class="max-w-[85%] rounded-2xl rounded-tl-md bg-sky-500 px-3 py-2 text-sm text-white shadow-sm">
+                                <p id="ai-chat">Hello. I am syncing with the live stadium state now.</p>
+                                <p id="ai-reason" class="mt-2 text-[10px] uppercase tracking-[0.18em] text-sky-100/80">Rule engine initialized. Waiting for live telemetry.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-left text-xs font-bold text-sky-700 transition hover:bg-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300" onclick="submitAIQuery('Where is the shortest line right now?')">Shortest line</button>
+                        <button class="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-left text-xs font-bold text-red-700 transition hover:bg-red-100 dark:border-slate-700 dark:bg-slate-800 dark:text-red-300" onclick="submitAIQuery('Help, emergency near section 112.')">Emergency help</button>
+                    </div>
+
+                    <div class="space-y-2">
+                        <input id="voice-text-input" type="text" placeholder="Ask about routes, food, restrooms, or safety..." class="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800">
+                        <button class="w-full rounded-2xl bg-slate-950 py-3 text-sm font-bold text-white transition hover:bg-slate-800 active:scale-[0.99] dark:bg-sky-600 dark:hover:bg-sky-500" onclick="submitAIQuery(document.getElementById('voice-text-input').value)">
+                            Send to AI Bot
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Gamification Header -->
             <div id="bounty-area" class="hidden">
-                 <h3 class="text-sm font-bold text-amber-500 dark:text-amber-400 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">✨ Flow Bounties Active</h3>
-                 <div id="bounty-list" class="space-y-2"></div>
+                <h3 class="text-sm font-bold text-amber-500 dark:text-amber-400 uppercase tracking-wider mb-2 px-1">Flow Bounties Active</h3>
+                <div id="bounty-list" class="space-y-2"></div>
             </div>
 
-            <!-- Wait Times -->
+            <div id="ai-guide-preview" class="rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 shadow-sm dark:border-sky-900/40 dark:bg-slate-900/70">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-500 text-sm font-black text-white shadow-sm">AI</div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <p class="text-sm font-black text-slate-900 dark:text-white">Live AI Guide</p>
+                            <span id="guide-scenario-pill" class="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">Normal</span>
+                        </div>
+                        <p id="guide-preview-chat" class="mt-2 text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-200">Crowd flow looks stable. Ask me for the best gate, shortest line, or help in an emergency.</p>
+                        <p id="guide-preview-reason" class="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Normal operations profile is active, with smooth entry flow and moderate concourse density.</p>
+                    </div>
+                </div>
+            </div>
+
             <div>
                 <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-1">Nearby Services</h3>
                 <div class="space-y-3" id="fan-waits">
@@ -169,314 +179,494 @@
                     <div class="animate-pulse bg-slate-200 dark:bg-slate-800 h-16 rounded-xl w-full"></div>
                 </div>
             </div>
-            
-            <!-- Interactive Map Mock -->
-            <div id="map-container" class="transition-all duration-300 transform rounded-2xl p-1 -m-1">
+
+            <div id="map-container" class="rounded-2xl">
                 <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-2">Live Venue Radar</h3>
                 <div class="relative bg-slate-200 dark:bg-slate-900 rounded-2xl h-64 border border-slate-300 dark:border-slate-800 overflow-hidden shadow-inner">
-                    <iframe 
-                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3311.23351939109!2d-118.34149022372439!3d33.95340147319409!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80c2b740523e85bb%3A0xe7a5cda11a2f64fa!2sSoFi%20Stadium!5e0!3m2!1sen!2sus!4v1713200000000!5m2!1sen!2sus" 
-                        width="100%" 
-                        height="100%" 
-                        style="border:0; filter: contrast(1.1) saturate(1.2);" 
-                        allowfullscreen="" 
-                        loading="lazy" 
-                        referrerpolicy="no-referrer-when-downgrade">
-                    </iframe>
-                    <!-- Heatmap Overlays Mock -->
+                    <iframe
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3311.23351939109!2d-118.34149022372439!3d33.95340147319409!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80c2b740523e85bb%3A0xe7a5cda11a2f64fa!2sSoFi%20Stadium!5e0!3m2!1sen!2sus!4v1713200000000!5m2!1sen!2sus"
+                        width="100%" height="100%" style="border:0; filter: contrast(1.1) saturate(1.2);" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
                     <div class="absolute inset-0 pointer-events-none p-4">
-                        <div class="w-full h-full flex items-center justify-center relative">
-                             <div class="absolute w-6 h-6 bg-red-500/50 rounded-full top-[30%] left-[40%] animate-ping blur-sm"></div>
-                        </div>
+                        <div id="map-hotspot" class="absolute w-6 h-6 bg-blue-500/45 rounded-full top-[36%] left-[48%] animate-ping blur-sm"></div>
                     </div>
                 </div>
             </div>
         </main>
 
-        <!-- Bottom Nav Bar Desktop -->
-        <nav class="absolute bottom-0 w-full glass border-t border-gray-200 dark:border-slate-800 py-3 px-6 flex justify-around hidden sm:flex border-b-0 z-50">
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 hover:text-blue-500 hover:-translate-y-1 transition active:scale-95" onclick="activateMap()">
-                <span class="text-2xl drop-shadow-sm">📍</span>
-                <span class="text-[10px] font-bold tracking-wide">MAP</span>
+        <nav class="absolute bottom-0 w-full border-t border-sky-200/70 bg-gradient-to-r from-white via-sky-50 to-indigo-50 px-4 py-3 flex justify-around z-50 shadow-[0_-12px_40px_rgba(14,116,144,0.12)] dark:border-slate-800 dark:bg-[linear-gradient(90deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94),rgba(49,46,129,0.92))]">
+            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-sky-600 hover:bg-sky-100/80 hover:text-sky-700 transition active:scale-95 dark:text-sky-300 dark:hover:bg-sky-500/10 dark:hover:text-sky-200" onclick="activateMap()">
+                <span class="text-lg leading-none">🗺️</span>
+                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Radar</span>
+                <span class="text-sm font-black">MAP</span>
             </button>
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 hover:text-blue-500 hover:-translate-y-1 transition active:scale-95" onclick="document.getElementById('ticket-modal').classList.remove('hidden')">
-                <span class="text-2xl drop-shadow-sm">🎫</span>
-                <span class="text-[10px] font-bold tracking-wide">TICKETS</span>
+            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-fuchsia-600 hover:bg-fuchsia-100/80 hover:text-fuchsia-700 transition active:scale-95 dark:text-fuchsia-300 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200" onclick="document.getElementById('ticket-modal').classList.remove('hidden')">
+                <span class="text-lg leading-none">🎟️</span>
+                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Access</span>
+                <span class="text-sm font-black">TICKET</span>
             </button>
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 transition group relative focus:outline-none" onclick="activateAI()">
-                <div class="absolute -top-7 w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(59,130,246,0.4)] group-hover:scale-110 group-active:scale-95 transition-all outline outline-4 outline-white dark:outline-slate-950">
-                    <span class="text-2xl pt-1">🎤</span>
-                </div>
-                <span class="text-2xl opacity-0">.</span>
-                <span class="text-[10px] font-bold tracking-wide mt-1 text-slate-500">ASK AI</span>
+            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-amber-600 hover:bg-amber-100/80 hover:text-amber-700 transition active:scale-95 dark:text-amber-300 dark:hover:bg-amber-500/10 dark:hover:text-amber-200" onclick="document.documentElement.classList.toggle('dark')">
+                <span class="text-lg leading-none">🌗</span>
+                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Mode</span>
+                <span class="text-sm font-black">THEME</span>
             </button>
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 hover:text-blue-500 hover:-translate-y-1 transition active:scale-95" onclick="document.getElementById('order-sheet').classList.remove('hidden')">
-                <span class="text-2xl drop-shadow-sm">🍔</span>
-                <span class="text-[10px] font-bold tracking-wide">ORDER</span>
+            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-emerald-600 hover:bg-emerald-100/80 hover:text-emerald-700 transition active:scale-95 dark:text-emerald-300 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-200" onclick="document.getElementById('order-sheet').classList.remove('hidden')">
+                <span class="text-lg leading-none">🍔</span>
+                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Food</span>
+                <span class="text-sm font-black">ORDER</span>
             </button>
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 hover:text-blue-500 hover:-translate-y-1 transition active:scale-95" onclick="document.documentElement.classList.toggle('dark')">
-                <span class="text-2xl drop-shadow-sm">🌓</span>
-                <span class="text-[10px] font-bold tracking-wide">THEME</span>
-            </button>
-        </nav>
-        
-        <!-- Mobile Bottom Nav -->
-        <nav class="absolute bottom-0 w-full glass border-t border-gray-200 dark:border-slate-800 py-3 px-6 flex justify-around sm:hidden z-50">
-             <button class="flex flex-col items-center gap-1.5 text-slate-400 hover:text-blue-500 hover:-translate-y-1 transition active:scale-95" onclick="activateMap()">
-                <span class="text-2xl drop-shadow-sm">📍</span>
-                <span class="text-[10px] font-bold tracking-wide">MAP</span>
-            </button>
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 hover:text-blue-500 hover:-translate-y-1 transition active:scale-95" onclick="document.getElementById('ticket-modal').classList.remove('hidden')">
-                <span class="text-2xl drop-shadow-sm">🎫</span>
-                <span class="text-[10px] font-bold tracking-wide">TICKETS</span>
-            </button>
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 transition group relative focus:outline-none" onclick="activateAI()">
-                <div class="absolute -top-7 w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(59,130,246,0.4)] group-hover:scale-110 group-active:scale-95 transition-all outline outline-4 outline-white dark:outline-slate-950">
-                    <span class="text-2xl pt-1.5 pr-0.5">🎤</span>
-                </div>
-                <span class="text-2xl opacity-0">.</span>
-                <span class="text-[10px] font-bold tracking-wide mt-1 text-slate-500">ASK AI</span>
-            </button>
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 hover:text-blue-500 hover:-translate-y-1 transition active:scale-95" onclick="document.getElementById('order-sheet').classList.remove('hidden')">
-                <span class="text-2xl drop-shadow-sm">🍔</span>
-                <span class="text-[10px] font-bold tracking-wide">ORDER</span>
-            </button>
-            <button class="flex flex-col items-center gap-1.5 text-slate-400 hover:text-blue-500 hover:-translate-y-1 transition active:scale-95" onclick="document.documentElement.classList.toggle('dark')">
-                <span class="text-2xl drop-shadow-sm">🌓</span>
-                <span class="text-[10px] font-bold tracking-wide">THEME</span>
+            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-rose-600 hover:bg-rose-100/80 hover:text-rose-700 transition active:scale-95 dark:text-rose-300 dark:hover:bg-rose-500/10 dark:hover:text-rose-200" onclick="openRewards()">
+                <span class="text-lg leading-none">🏆</span>
+                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Rewards</span>
+                <span class="text-sm font-black">POINTS</span>
             </button>
         </nav>
+
+        <button id="ai-close-chip" onclick="closeAIModal()" class="hidden absolute right-4 top-[5.5rem] z-[125] rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-300">
+            Hide Bot
+        </button>
+
+        <button id="ai-launcher" onclick="openAIModal()" class="absolute bottom-24 right-4 z-[126] flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 text-lg font-black text-white shadow-[0_12px_36px_rgba(59,130,246,0.45)] transition hover:scale-105 active:scale-95">
+            AI
+        </button>
     </div>
 
-    <!-- Interface Logic Scripts -->
     <script>
-        // --- Order Cart Mock Logic ---
-        let cartTotal = 0.00;
-        function addToCart(price) {
-            cartTotal += price;
-            const btn = document.getElementById('checkout-btn');
-            btn.innerText = `Checkout • $${cartTotal.toFixed(2)}`;
-            btn.classList.remove('disabled:opacity-50');
-            showToast('🛒', 'Cart Updated', `Item added. Total: $${cartTotal.toFixed(2)}`);
-        }
-        function submitOrder() {
-            if(cartTotal === 0) return;
-            document.getElementById('order-sheet').classList.add('hidden');
-            showToast('🚀', 'Order Placed successfully!', 'A staff runner will deliver it to Sec 112 in approx 5-8 mins.');
-            cartTotal = 0; // Reset
-            document.getElementById('checkout-btn').innerText = `Checkout • $0.00`;
+        let cartTotal = 0;
+        let totalPoints = 240;
+        let aiPinnedUntil = 0;
+        let activeDiscount = 0;
+        let ws = null;
+        let reconnectTimer = null;
+        let reconnecting = false;
+        let isDraggingBot = false;
+        let botDragOffsetX = 0;
+        let botDragOffsetY = 0;
+
+        function titleize(value) {
+            return value.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
         }
 
-        // --- Nav Handlers ---
-        function activateMap() {
-            const mapPanel = document.getElementById('map-container');
-            mapPanel.scrollIntoView({behavior: 'smooth', block: 'center'});
-            mapPanel.classList.add('ring-4', 'ring-blue-500', 'ring-offset-2', 'dark:ring-offset-slate-950', 'ring-opacity-50', 'scale-[1.02]');
-            setTimeout(() => {
-                mapPanel.classList.remove('ring-4', 'ring-blue-500', 'ring-offset-2', 'dark:ring-offset-slate-950', 'ring-opacity-50', 'scale-[1.02]');
-            }, 1200);
+        function getServiceMeta(key) {
+            if (key.includes('food')) {
+                return {
+                    emoji: '🍟',
+                    bg: 'from-amber-100 via-orange-50 to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900',
+                    border: 'border-amber-200/80 dark:border-amber-700/30',
+                    accent: 'text-amber-600 dark:text-amber-300'
+                };
+            }
+            if (key.includes('restroom')) {
+                return {
+                    emoji: '🚻',
+                    bg: 'from-cyan-100 via-sky-50 to-white dark:from-cyan-950/40 dark:via-slate-900 dark:to-slate-900',
+                    border: 'border-cyan-200/80 dark:border-cyan-700/30',
+                    accent: 'text-cyan-600 dark:text-cyan-300'
+                };
+            }
+            if (key.includes('merch')) {
+                return {
+                    emoji: '🧢',
+                    bg: 'from-fuchsia-100 via-pink-50 to-white dark:from-fuchsia-950/40 dark:via-slate-900 dark:to-slate-900',
+                    border: 'border-fuchsia-200/80 dark:border-fuchsia-700/30',
+                    accent: 'text-fuchsia-600 dark:text-fuchsia-300'
+                };
+            }
+            return {
+                emoji: '📍',
+                bg: 'from-slate-100 via-slate-50 to-white dark:from-slate-800 dark:via-slate-900 dark:to-slate-900',
+                border: 'border-slate-200/80 dark:border-slate-700/40',
+                accent: 'text-slate-600 dark:text-slate-300'
+            };
         }
 
-        function activateAI() {
-            document.getElementById('voice-modal').classList.remove('hidden');
-        }
-
-        // --- Demo Simulated Voice Query Processing ---
-        function triggerSimulatedAI(query) {
-            document.getElementById('voice-modal').classList.add('hidden');
-            const chatPanel = document.getElementById('ai-module');
-            const iconPanel = document.getElementById('ai-icon');
-            
-            chatPanel.scrollIntoView({behavior: 'smooth', block: 'center'});
-            chatPanel.classList.add('ring-4', 'ring-blue-400', 'scale-[1.03]');
-            iconPanel.classList.add('animate-spin');
-            
-            document.getElementById('ai-reason').innerText = "AUDIO SYS INIT: Processing NLP intent mapping for generated voice output...";
-            document.getElementById('ai-chat').innerHTML = `<span class="bg-blue-900/30 text-blue-300 text-xs px-2 py-1 rounded-md shadow-sm font-mono tracking-tight items-center mb-2 inline-flex gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span> Voice Query</span><br><em class="mt-1 block opacity-90">"${query}"</em><br><span class="opacity-50 blur-[2px] mt-2 block">Synthesizing response...</span>`;
-            
-            setTimeout(() => {
-                chatPanel.classList.remove('ring-4', 'ring-blue-400', 'scale-[1.03]');
-                iconPanel.classList.remove('animate-spin');
-                
-                showToast('🧠', 'NLP Engine Triggered', 'Voice request parsed successfully. Generating routing solution.');
-                
-                 if(query.includes('crowded gate')) {
-                     document.getElementById('ai-chat').innerHTML = `<span class="bg-blue-900/30 text-blue-300 text-xs px-2 py-1 rounded-md shadow-sm font-mono tracking-tight items-center mb-2 inline-flex gap-1.5">🎙️ Voice Query</span><br><em class="mt-1 block opacity-80 border-l-2 border-blue-500 pl-2">"${query}"</em><br><p class="mt-3">The South Gate currently has the absolute lowest wait time (< 5 mins). Taking that route earns you a +50 PTR load-balancing bounty!</p>`;
-                     document.getElementById('ai-reason').innerText = "Query matches routing protocol. Compared heatmaps: South=Low, North=Critical.";
-                 } else {
-                     document.getElementById('ai-chat').innerHTML = `<span class="bg-red-900/30 text-red-300 text-xs px-2 py-1 rounded-md shadow-sm font-mono tracking-tight items-center mb-2 inline-flex gap-1.5">🚨 Critical Voice Report</span><br><em class="mt-1 block opacity-80 border-l-2 border-red-500 pl-2 text-white">"${query}"</em><br><p class="mt-3 font-semibold text-white">Emergency Incident Logged. Security personnel dispatched to Section 112. Please remain where you are.</p>`;
-                     document.getElementById('ai-reason').innerText = "Critical keyword 'lost child' detected. Bypassing normal queue. Alerting local ground staff and initiating camera facial recognition scans.";
-                     
-                     // Force styling to red
-                     chatPanel.classList.replace('from-indigo-500', 'from-red-600');
-                     chatPanel.classList.replace('to-purple-600', 'to-red-900');
-                 }
-            }, 2500);
-        }
-
-        // --- Vanilla Toast Utility ---
-        function showToast(icon, title, message) {
+        function showToast(title, message) {
             const toast = document.createElement('div');
-            toast.className = 'fixed top-16 left-1/2 transform -translate-x-1/2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-[0_10px_40px_rgba(0,0,0,0.15)] p-4 rounded-2xl z-[100] flex items-center gap-4 transition-all duration-300 ease-out -translate-y-[150%] opacity-0 w-[90%] max-w-sm';
-            toast.innerHTML = `
-                <div class="text-3xl">${icon}</div>
-                <div>
-                    <h4 class="font-bold text-sm text-slate-800 dark:text-white">${title}</h4>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">${message}</p>
-                </div>
-            `;
+            toast.className = 'fixed top-16 left-1/2 transform -translate-x-1/2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-[0_10px_40px_rgba(0,0,0,0.15)] p-4 rounded-2xl z-[100] transition-all duration-300 ease-out -translate-y-[150%] opacity-0 w-[90%] max-w-sm';
+            toast.innerHTML = `<h4 class="font-bold text-sm text-slate-800 dark:text-white">${title}</h4><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">${message}</p>`;
             document.body.appendChild(toast);
-            
             void toast.offsetWidth;
             toast.classList.remove('-translate-y-[150%]', 'opacity-0');
             toast.classList.add('translate-y-0', 'opacity-100');
-            
             setTimeout(() => {
                 toast.classList.remove('translate-y-0', 'opacity-100');
                 toast.classList.add('-translate-y-[150%]', 'opacity-0');
                 setTimeout(() => toast.remove(), 300);
-            }, 3500);
+            }, 3000);
         }
 
-        // --- Main WebSocket Logic ---
-        let totalPoints = 240;
+        function updatePointsUI() {
+            document.getElementById('flow-points').innerText = totalPoints;
+            const orderPointsBalance = document.getElementById('order-points-balance');
+            if (orderPointsBalance) {
+                orderPointsBalance.innerText = totalPoints;
+            }
 
-        function connectWebSocket() {
-            const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/data`);
-            
-            ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                
-                // Emergency Protocol
-                if (data.emergency_override) {
-                    document.getElementById('emergency-overlay').classList.remove('hidden');
+            const smallRewardBtn = document.getElementById('reward-discount-small');
+            const largeRewardBtn = document.getElementById('reward-discount-large');
+            if (smallRewardBtn) {
+                smallRewardBtn.disabled = totalPoints < 120 || activeDiscount >= 2;
+            }
+            if (largeRewardBtn) {
+                largeRewardBtn.disabled = totalPoints < 260 || activeDiscount >= 5;
+            }
+        }
+
+        function updateCheckoutTotal() {
+            const finalTotal = Math.max(cartTotal - activeDiscount, 0);
+            document.getElementById('checkout-btn').innerText = `Checkout | $${finalTotal.toFixed(2)}`;
+        }
+
+        function openRewards() {
+            document.getElementById('order-sheet').classList.remove('hidden');
+            document.getElementById('reward-status').innerText = activeDiscount > 0
+                ? `Reward active: $${activeDiscount.toFixed(2)} off your current order.`
+                : 'Redeem points to lower your checkout total instantly.';
+            updatePointsUI();
+            updateCheckoutTotal();
+        }
+
+        function claimPoints(points) {
+            totalPoints += points;
+            updatePointsUI();
+            showToast('Points Deposited', `You earned +${points} Flow Points.`);
+        }
+
+        function redeemReward(rewardKey) {
+            if (rewardKey === 'discount_small') {
+                if (totalPoints < 120 || activeDiscount >= 2) return;
+                totalPoints -= 120;
+                activeDiscount += 2;
+                document.getElementById('reward-status').innerText = 'Applied $2 off to your concessions order.';
+                showToast('Reward Redeemed', '$2 discount applied to your food order.');
+            }
+
+            if (rewardKey === 'discount_large') {
+                if (totalPoints < 260 || activeDiscount >= 5) return;
+                totalPoints -= 260;
+                activeDiscount += 5;
+                document.getElementById('reward-status').innerText = 'Applied $5 off to your concessions order.';
+                showToast('Reward Redeemed', '$5 discount applied to your food order.');
+            }
+
+            updatePointsUI();
+            updateCheckoutTotal();
+        }
+
+        function addToCart(price) {
+            cartTotal += price;
+            updateCheckoutTotal();
+            showToast('Cart Updated', `Item added. Total: $${cartTotal.toFixed(2)}`);
+        }
+
+        function submitOrder() {
+            if (cartTotal === 0) {
+                showToast('Cart Empty', 'Add something first to place an order.');
+                return;
+            }
+            document.getElementById('order-sheet').classList.add('hidden');
+            const savedAmount = activeDiscount > 0 ? ` You saved $${activeDiscount.toFixed(2)} with Flow Rewards.` : '';
+            showToast('Order Placed', `A runner will deliver it to Section 112 shortly.${savedAmount}`);
+            cartTotal = 0;
+            activeDiscount = 0;
+            document.getElementById('reward-status').innerText = 'Redeem points to lower your checkout total instantly.';
+            updatePointsUI();
+            updateCheckoutTotal();
+        }
+
+        function activateMap() {
+            const mapPanel = document.getElementById('map-container');
+            mapPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            mapPanel.classList.add('ring-4', 'ring-blue-500', 'ring-offset-2', 'dark:ring-offset-slate-950');
+            setTimeout(() => mapPanel.classList.remove('ring-4', 'ring-blue-500', 'ring-offset-2', 'dark:ring-offset-slate-950'), 1200);
+        }
+
+        function openAIModal() {
+            document.getElementById('ai-module').classList.remove('hidden');
+            document.getElementById('ai-close-chip').classList.remove('hidden');
+            document.getElementById('ai-launcher').classList.add('hidden');
+            document.getElementById('voice-text-input').focus();
+        }
+
+        function closeAIModal() {
+            document.getElementById('ai-module').classList.add('hidden');
+            document.getElementById('ai-close-chip').classList.add('hidden');
+            document.getElementById('ai-launcher').classList.remove('hidden');
+        }
+
+        function appendConversationBubble(content, tone = 'assistant', meta = '') {
+            const conversation = document.getElementById('ai-conversation');
+            const wrapper = document.createElement('div');
+            wrapper.className = tone === 'user' ? 'flex justify-end' : 'flex justify-start';
+
+            const bubble = document.createElement('div');
+            bubble.className = tone === 'user'
+                ? 'max-w-[85%] rounded-2xl rounded-tr-md bg-slate-900 px-3 py-2 text-sm text-white shadow-sm dark:bg-slate-700'
+                : 'max-w-[85%] rounded-2xl rounded-tl-md bg-sky-500 px-3 py-2 text-sm text-white shadow-sm';
+            bubble.innerHTML = `<p>${content}</p>${meta ? `<p class="mt-2 text-[10px] uppercase tracking-[0.18em] ${tone === 'user' ? 'text-slate-300' : 'text-sky-100/80'}">${meta}</p>` : ''}`;
+
+            wrapper.appendChild(bubble);
+            conversation.appendChild(wrapper);
+            conversation.scrollTop = conversation.scrollHeight;
+            return bubble;
+        }
+
+        function updateGuidePreview(message, reasoning, scenario) {
+            if (message) {
+                document.getElementById('guide-preview-chat').innerText = message;
+            }
+            if (reasoning) {
+                document.getElementById('guide-preview-reason').innerText = reasoning;
+            }
+            if (scenario) {
+                document.getElementById('guide-scenario-pill').innerText = titleize(scenario);
+            }
+        }
+
+        function keepBotInBounds() {
+            const bot = document.getElementById('ai-module');
+            const container = bot.parentElement.getBoundingClientRect();
+            const rect = bot.getBoundingClientRect();
+            const minLeft = 8;
+            const maxLeft = Math.max(8, container.width - rect.width - 8);
+            const minTop = 72;
+            const maxTop = Math.max(72, container.height - rect.height - 90);
+            const currentLeft = rect.left - container.left;
+            const currentTop = rect.top - container.top;
+            bot.style.left = `${Math.min(Math.max(currentLeft, minLeft), maxLeft)}px`;
+            bot.style.top = `${Math.min(Math.max(currentTop, minTop), maxTop)}px`;
+            bot.style.right = 'auto';
+        }
+
+        function startBotDrag(event) {
+            const bot = document.getElementById('ai-module');
+            const pointer = event.touches ? event.touches[0] : event;
+            const rect = bot.getBoundingClientRect();
+            const container = bot.parentElement.getBoundingClientRect();
+            isDraggingBot = true;
+            bot.classList.add('dragging');
+            bot.style.left = `${rect.left - container.left}px`;
+            bot.style.top = `${rect.top - container.top}px`;
+            bot.style.right = 'auto';
+            botDragOffsetX = pointer.clientX - rect.left;
+            botDragOffsetY = pointer.clientY - rect.top;
+        }
+
+        function moveBot(event) {
+            if (!isDraggingBot) return;
+            const bot = document.getElementById('ai-module');
+            const pointer = event.touches ? event.touches[0] : event;
+            const container = bot.parentElement.getBoundingClientRect();
+            bot.style.left = `${pointer.clientX - container.left - botDragOffsetX}px`;
+            bot.style.top = `${pointer.clientY - container.top - botDragOffsetY}px`;
+            keepBotInBounds();
+        }
+
+        function stopBotDrag() {
+            if (!isDraggingBot) return;
+            isDraggingBot = false;
+            document.getElementById('ai-module').classList.remove('dragging');
+        }
+
+        async function submitAIQuery(query) {
+            const trimmed = (query || '').trim();
+            if (!trimmed) return;
+
+            openAIModal();
+            document.getElementById('voice-text-input').value = '';
+
+            const module = document.getElementById('ai-module');
+            const icon = document.getElementById('ai-icon');
+            module.classList.add('ring-4', 'ring-blue-400', 'scale-[1.03]');
+            icon.classList.add('animate-spin');
+            aiPinnedUntil = Date.now() + 10000;
+            appendConversationBubble(trimmed, 'user', 'Fan Query');
+            const pendingBubble = appendConversationBubble('Analyzing the live stadium state...', 'assistant', 'Processing');
+            document.getElementById('ai-reason').innerText = 'Actively processing live telemetry and route logic.';
+
+            try {
+                const response = await fetch('/api/v1/ask_ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: trimmed })
+                });
+                const result = await response.json();
+                const ai = result.response;
+                pendingBubble.innerHTML = `<p>${ai.message}</p><p class="mt-2 text-[10px] uppercase tracking-[0.18em] text-sky-100/80">${ai.reasoning}</p>`;
+                document.getElementById('ai-reason').innerText = ai.reasoning;
+                document.getElementById('scenario-pill').innerText = titleize(result.scenario);
+                updateGuidePreview(ai.message, ai.reasoning, result.scenario);
+
+                if (ai.severity === 'critical') {
+                    document.getElementById('ai-handle').classList.remove('from-sky-500', 'to-indigo-600');
+                    document.getElementById('ai-handle').classList.add('from-red-600', 'to-red-900');
+                    showToast('Critical Alert', 'Staff escalation triggered from your report.');
                 } else {
-                    document.getElementById('emergency-overlay').classList.add('hidden');
+                    document.getElementById('ai-handle').classList.remove('from-red-600', 'to-red-900');
+                    document.getElementById('ai-handle').classList.add('from-sky-500', 'to-indigo-600');
+                    showToast('AI Response Ready', 'Live backend routing advice generated successfully.');
                 }
+            } catch (err) {
+                console.error('Failed to query backend AI', err);
+                pendingBubble.innerHTML = '<p>I could not reach the AI service right now. Please try again in a moment.</p><p class="mt-2 text-[10px] uppercase tracking-[0.18em] text-sky-100/80">Backend request failed</p>';
+                document.getElementById('ai-reason').innerText = 'Backend request failed. Falling back to live telemetry only.';
+                showToast('AI Unavailable', 'Could not reach the backend assistant.');
+            } finally {
+                module.classList.remove('ring-4', 'ring-blue-400', 'scale-[1.03]');
+                icon.classList.remove('animate-spin');
+            }
+        }
 
-                // AI Chat & Explanations Processing
-                const aiAlert = data.alerts[0] || {};
-                const aiReasonText = document.getElementById('ai-reason');
-                if(!aiReasonText.innerText.includes("Actively processing")) {
-                     aiReasonText.innerText = aiAlert.reasoning || "Analyzing crowd behavior to suggest optimal pathways.";
+        function renderTelemetry(data) {
+            document.getElementById('scenario-pill').innerText = titleize(data.scenario || 'normal');
+            document.getElementById('guide-scenario-pill').innerText = titleize(data.scenario || 'normal');
+            const aiLocked = Date.now() < aiPinnedUntil;
+
+            if (data.emergency_override) {
+                document.getElementById('emergency-overlay').classList.remove('hidden');
+                document.getElementById('ai-chat').innerText = '"Follow the red emergency screens immediately. Do not push. Proceed to marked exits."';
+                updateGuidePreview(
+                    'Follow the red emergency screens immediately. Do not push. Proceed to marked exits.',
+                    'Manual evacuation override was triggered from the Command Center.',
+                    data.scenario || 'normal'
+                );
+                document.getElementById('ai-handle').classList.remove('from-sky-500', 'to-indigo-600');
+                document.getElementById('ai-handle').classList.add('from-red-600', 'to-red-900');
+            } else {
+                document.getElementById('emergency-overlay').classList.add('hidden');
+                if (!aiLocked && !document.getElementById('ai-reason').innerText.includes('Actively processing')) {
+                    const firstAlert = data.alerts[0];
+                    document.getElementById('ai-reason').innerText = firstAlert ? firstAlert.reasoning : 'Analyzing crowd behavior to suggest optimal pathways.';
+                    if (data.scenario === 'peak_rush') {
+                        document.getElementById('ai-chat').innerText = '"Peak rush is active. Ask me for the best gate or shortest line."';
+                        updateGuidePreview(
+                            'Peak rush is active. Ask me for the best gate or shortest line.',
+                            firstAlert ? firstAlert.reasoning : 'Peak rush scenario is active across the venue.',
+                            data.scenario
+                        );
+                    } else {
+                        document.getElementById('ai-chat').innerText = '"Crowd flow looks stable. Ask me for the best gate, shortest line, or help in an emergency."';
+                        updateGuidePreview(
+                            'Crowd flow looks stable. Ask me for the best gate, shortest line, or help in an emergency.',
+                            firstAlert ? firstAlert.reasoning : 'Normal operations profile is active, with smooth entry flow and moderate concourse density.',
+                            data.scenario || 'normal'
+                        );
+                    }
                 }
+                document.getElementById('ai-handle').classList.remove('from-red-600', 'to-red-900');
+                document.getElementById('ai-handle').classList.add('from-sky-500', 'to-indigo-600');
+            }
 
-                // Wait Times UI
-                let waitHtml = '';
-                for(const [key, val] of Object.entries(data.wait_times_minutes)) {
-                    const neatKey = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                    let icon = '⏱️';
-                    if(key.includes('food')) icon = '🍟';
-                    if(key.includes('restroom')) icon = '🚻';
-                    if(key.includes('gate')) icon = '🚪';
-                    if(key.includes('merch')) icon = '👕';
-                    
-                    const isHigh = val > 15;
-                    const statusColor = isHigh ? 'text-red-500' : 'text-emerald-500';
-                    
-                    waitHtml += `
-                        <div class="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-4 rounded-2xl flex justify-between items-center shadow-sm">
-                            <div class="flex items-center gap-3">
-                                <div class="text-2xl">${icon}</div>
-                                <div>
-                                    <h4 class="font-bold text-sm m-0">${neatKey}</h4>
-                                    <p class="text-xs text-slate-400 m-0">${isHigh ? 'High Traffic' : 'Smooth Flow'}</p>
-                                </div>
+            let waitHtml = '';
+            for (const [key, val] of Object.entries(data.wait_times_minutes)) {
+                const isHigh = val > 15;
+                const meta = getServiceMeta(key);
+                waitHtml += `
+                    <div class="bg-gradient-to-r ${meta.bg} border ${meta.border} p-4 rounded-3xl flex justify-between items-center shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 text-2xl shadow-sm dark:bg-slate-800/80">
+                                ${meta.emoji}
                             </div>
-                            <div class="text-right">
-                                <span class="font-mono text-xl font-bold ${statusColor}">${val}</span>
-                                <span class="text-xs font-bold text-slate-400 uppercase">min</span>
+                            <div>
+                                <h4 class="font-bold text-sm ${meta.accent}">${titleize(key)}</h4>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">${isHigh ? 'High traffic' : 'Smooth flow'}</p>
                             </div>
                         </div>
+                        <div class="text-right">
+                            <span class="font-mono text-xl font-bold ${isHigh ? 'text-red-500' : 'text-emerald-500'}">${val}</span>
+                            <span class="text-xs font-bold text-slate-400 uppercase">min</span>
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('fan-waits').innerHTML = waitHtml;
+
+            if (data.gamification && data.gamification.bounties.length > 0) {
+                document.getElementById('bounty-area').classList.remove('hidden');
+                let bountyHtml = '';
+                data.gamification.bounties.forEach(b => {
+                    const numericPoints = Number(String(b.points).replace(/[^0-9]/g, '')) || 0;
+                    bountyHtml += `
+                        <div class="bg-gradient-to-r from-amber-500/10 to-transparent border border-amber-500/30 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-amber-500/20 transition-all shadow-sm" onclick="claimPoints(${numericPoints})">
+                            <div>
+                                <p class="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Load Balancing Bounty</p>
+                                <p class="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-tight mt-0.5">${b.reason}</p>
+                            </div>
+                            <div class="bg-amber-500 text-white font-black px-2 py-1 rounded text-sm shadow-lg whitespace-nowrap">${b.points} PTR</div>
+                        </div>
                     `;
-                }
-                document.getElementById('fan-waits').innerHTML = waitHtml;
+                });
+                document.getElementById('bounty-list').innerHTML = bountyHtml;
+            } else {
+                document.getElementById('bounty-area').classList.add('hidden');
+            }
 
-                // Gamification Bounties
-                if (data.gamification && data.gamification.bounties.length > 0) {
-                     document.getElementById('bounty-area').classList.remove('hidden');
-                     let bHtml = '';
-                     data.gamification.bounties.forEach(b => {
-                         const neatKey = b.target.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                         bHtml += `
-                         <div class="bg-gradient-to-r from-amber-500/10 to-transparent border border-amber-500/30 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all shadow-sm" onclick="claimPoints()">
-                             <div>
-                                 <p class="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Load Balancing Bounty</p>
-                                 <p class="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-tight mt-0.5">${b.reason}</p>
-                             </div>
-                             <div class="bg-amber-500 text-white font-black px-2 py-1 rounded text-sm shadow-lg whitespace-nowrap">
-                                 ${b.points} PTR
-                             </div>
-                         </div>
-                         `;
-                     });
-                     document.getElementById('bounty-list').innerHTML = bHtml;
-                     
-                     if(!data.emergency_override) {
-                         const chat = document.getElementById('ai-chat');
-                         if(!chat.innerText.includes("Flow Points")) {
-                             chat.innerText = `"I found a way for you to earn Flow Points! Check the active bounties to help balance stadium load."`;
-                         }
-                     }
-                } else {
-                     document.getElementById('bounty-area').classList.add('hidden');
-                }
+            const hotspot = document.getElementById('map-hotspot');
+            if (data.heatmaps.north_gate === 'critical' || data.scenario === 'peak_rush') {
+                hotspot.className = 'absolute w-8 h-8 bg-red-500/60 rounded-full top-[26%] left-[42%] animate-ping blur-sm';
+            } else {
+                hotspot.className = 'absolute w-6 h-6 bg-blue-500/45 rounded-full top-[36%] left-[48%] animate-ping blur-sm';
+            }
+        }
 
-                // Default AI chat fallback
-                if(data.emergency_override) {
-                   document.getElementById('ai-chat').innerText = `"Follow the red emergency screens immediately. Do not push. Proceed to marked exits."`;
-                   document.getElementById('ai-module').classList.replace('from-indigo-500', 'from-red-600');
-                   document.getElementById('ai-module').classList.replace('to-purple-600', 'to-red-900');
-                   document.getElementById('ai-module').classList.add('animate-pulse');
-                } else if(!data.gamification || data.gamification.bounties.length === 0) {
-                    const foodWait = data.wait_times_minutes.food_stalls || 0;
-                    if (foodWait < 10) {
-                        document.getElementById('ai-chat').innerText = `"Hey! The Food Stalls are entirely clear right now (${foodWait} mins). Great time to grab a snack!"`;
-                    } else if (data.heatmaps.north_gate === 'critical') {
-                         document.getElementById('ai-chat').innerText = `"Alert: Please avoid the North Gate area entirely, it's experiencing heavy traffic."`;
-                    } else {
-                         document.getElementById('ai-chat').innerText = `"Crowd flow is stable. I'll notify you automatically if any bottlenecks appear near your section."`;
-                    }
-                    document.getElementById('ai-module').classList.replace('from-red-600', 'from-indigo-500');
-                    document.getElementById('ai-module').classList.replace('to-red-900', 'to-purple-600');
-                    document.getElementById('ai-module').classList.remove('animate-pulse');
-                }
-            };
+        function connectWebSocket() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
 
-            // Offline Mode Toggle
-            ws.onclose = ws.onerror = function() {
-                document.getElementById('offline-banner').classList.remove('hidden');
-                document.getElementById('main-header').classList.add('opacity-50');
-                document.getElementById('live-indicator').innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500 relative shadow-inner"></span> Offline`;
-                document.getElementById('live-indicator').className = "text-xs text-slate-500 font-bold flex items-center gap-1 mt-1";
-                // Attempt reconnect
-                setTimeout(connectWebSocket, 5000);
-            };
-            
+            reconnecting = false;
+            ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/data`);
+            ws.onmessage = event => renderTelemetry(JSON.parse(event.data));
             ws.onopen = function() {
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                    reconnectTimer = null;
+                }
                 document.getElementById('offline-banner').classList.add('hidden');
                 document.getElementById('main-header').classList.remove('opacity-50');
-                document.getElementById('live-indicator').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping absolute"></span><span class="w-2 h-2 rounded-full bg-emerald-500 relative"></span> Live Sync`;
-                document.getElementById('live-indicator').className = "text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 mt-1 uppercase tracking-widest";
+            };
+
+            const scheduleReconnect = function() {
+                if (reconnecting) {
+                    return;
+                }
+                reconnecting = true;
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                }
+                document.getElementById('offline-banner').classList.remove('hidden');
+                document.getElementById('main-header').classList.add('opacity-50');
+                document.getElementById('live-indicator').innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500 relative shadow-inner"></span> Offline';
+                document.getElementById('live-indicator').className = 'text-xs text-slate-500 font-bold flex items-center gap-1 mt-1 uppercase tracking-widest';
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWebSocket();
+                }, 5000);
+            };
+
+            ws.onerror = function() {
+                scheduleReconnect();
+            };
+
+            ws.onclose = function() {
+                scheduleReconnect();
             };
         }
 
-        // Mock Gamification claim function
-        function claimPoints() {
-            totalPoints += 50;
-            document.getElementById('flow-points').innerText = totalPoints;
-            const fp = document.getElementById('flow-points').parentElement;
-            fp.classList.add('bg-green-100', 'border-green-400');
-            fp.classList.remove('bg-amber-100', 'border-amber-300');
-            showToast('🎟️', 'Points Deposited!', 'You earned +50 Flow Points for choosing the balanced route. Check your rewards tab!');
-            setTimeout(() => {
-                fp.classList.remove('bg-green-100', 'border-green-400');
-                fp.classList.add('bg-amber-100', 'border-amber-300');
-            }, 600);
-        }
-
-        // Initialize App
-        connectWebSocket();
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('voice-text-input').addEventListener('keydown', event => {
+                if (event.key === 'Enter') submitAIQuery(event.target.value);
+            });
+            document.getElementById('ai-handle').addEventListener('mousedown', startBotDrag);
+            document.getElementById('ai-handle').addEventListener('touchstart', startBotDrag, { passive: true });
+            window.addEventListener('mousemove', moveBot);
+            window.addEventListener('touchmove', moveBot, { passive: true });
+            window.addEventListener('mouseup', stopBotDrag);
+            window.addEventListener('touchend', stopBotDrag);
+            window.addEventListener('resize', keepBotInBounds);
+            updatePointsUI();
+            updateCheckoutTotal();
+            connectWebSocket();
+        });
     </script>
 </body>
 </html>

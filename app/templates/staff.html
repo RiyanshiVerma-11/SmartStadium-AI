@@ -2,119 +2,191 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .critical-glow { box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); animation: pulse-red 2s infinite; }
-        @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); } 50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.6); } }
-        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .glass { background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(14px); border: 1px solid rgba(148, 163, 184, 0.12); }
+        .critical-glow { box-shadow: 0 0 28px rgba(239, 68, 68, 0.35); animation: pulse-red 1.8s infinite; }
+        .scenario-active { box-shadow: 0 0 20px rgba(56, 189, 248, 0.22); }
+        @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 18px rgba(239, 68, 68, 0.22); } 50% { box-shadow: 0 0 32px rgba(239, 68, 68, 0.45); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 999px; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 h-screen overflow-hidden flex flex-col font-sans">
-    <nav class="glass border-b border-slate-800 p-4 shrink-0 flex justify-between items-center z-10">
+<body class="bg-slate-950 text-slate-200 min-h-screen overflow-hidden flex flex-col font-sans">
+    <nav class="glass border-b border-slate-800 p-4 shrink-0 flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center z-10">
         <div class="flex items-center gap-4">
-            <a href="/" class="text-slate-400 hover:text-white transition">← Back</a>
-            <h1 class="text-2xl font-bold tracking-tight text-white">Security Command<span class="text-emerald-500">.ai</span></h1>
+            <a href="/" class="text-slate-400 hover:text-white transition">Back</a>
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-white">Security Command<span class="text-cyan-400">.ai</span></h1>
+                <p class="text-xs uppercase tracking-[0.25em] text-slate-500 mt-1">Scenario-driven operations control</p>
+            </div>
         </div>
-        <div class="flex items-center gap-4">
-            <button id="panic-btn" onclick="togglePanic()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-1.5 px-4 rounded-md shadow-[0_0_15px_rgba(220,38,38,0.5)] transition-transform active:scale-95 uppercase tracking-wider border border-red-400">
-                🚨 Manual Evacuation Override
-            </button>
-            <div class="flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-full border border-slate-700">
-                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span class="text-xs font-mono uppercase text-emerald-500">WebSockets Active</span>
+
+        <div class="flex flex-col gap-3 lg:items-end">
+            <div class="flex flex-wrap gap-2 items-center">
+                <span class="text-[11px] uppercase tracking-[0.25em] text-slate-500">Scenario Control</span>
+                <button id="scenario-normal" onclick="setScenario('normal')" class="scenario-btn px-3 py-2 rounded-full text-xs font-bold border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 transition hover:bg-emerald-500/20">
+                    Normal Operations
+                </button>
+                <button id="scenario-peak_rush" onclick="setScenario('peak_rush')" class="scenario-btn px-3 py-2 rounded-full text-xs font-bold border border-orange-500/40 bg-orange-500/10 text-orange-300 transition hover:bg-orange-500/20">
+                    Simulate Peak Rush
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-full border border-slate-700">
+                    <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span class="text-xs font-mono uppercase text-emerald-500">WebSocket Live</span>
+                </div>
+                <button id="panic-btn" onclick="togglePanic()" class="bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded-md shadow-[0_0_15px_rgba(220,38,38,0.35)] transition-transform active:scale-95 uppercase tracking-wider border border-red-400">
+                    Manual Evacuation Override
+                </button>
             </div>
         </div>
     </nav>
 
-    <div class="flex-1 p-6 grid grid-cols-12 gap-6 overflow-hidden">
-        <!-- AI Event Log -->
-        <div class="col-span-3 glass rounded-xl flex flex-col overflow-hidden">
-            <div class="p-4 border-b border-slate-800 bg-slate-900/50">
+    <div class="flex-1 p-6 grid grid-cols-1 xl:grid-cols-12 gap-6 overflow-hidden">
+        <div class="xl:col-span-3 glass rounded-2xl flex flex-col overflow-hidden min-h-[240px]">
+            <div class="p-4 border-b border-slate-800 bg-slate-900/60">
                 <h2 class="font-semibold uppercase tracking-wider text-xs text-slate-400">AI Intervention Logs</h2>
             </div>
             <div id="log-container" class="p-4 overflow-y-auto flex-1 space-y-3 font-mono text-sm">
-                <p class="text-slate-500 italic">Waiting for AI telemetry...</p>
+                <p class="text-slate-500 italic">Waiting for live telemetry...</p>
             </div>
         </div>
 
-        <!-- Main Heatmap & Stats -->
-        <div class="col-span-6 flex flex-col gap-6">
-            <div class="glass rounded-xl flex-1 flex flex-col p-6 relative">
-                <div class="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-                <h2 class="text-lg font-semibold mb-6 z-10 relative">Live Zone Density Map</h2>
-                <div class="flex-1 grid grid-cols-2 gap-4 z-10 relative" id="heatmap-grid">
-                    <!-- Javascript populates this -->
+        <div class="xl:col-span-6 flex flex-col gap-6 min-h-0">
+            <div class="glass rounded-2xl flex-1 flex flex-col p-6 relative min-h-[320px]">
+                <div class="absolute inset-0 bg-[linear-gradient(to_right,#94a3b81a_1px,transparent_1px),linear-gradient(to_bottom,#94a3b81a_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+                <div class="relative z-10 flex items-start justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white">Live Zone Density Map</h2>
+                        <p class="text-sm text-slate-400">Predictable scenario states for a clean live demo.</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[11px] uppercase tracking-[0.25em] text-slate-500">Active Scenario</p>
+                        <p class="text-xl font-semibold text-cyan-300" id="scenario-label">Normal</p>
+                    </div>
                 </div>
+                <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 z-10 relative" id="heatmap-grid"></div>
             </div>
-            
-            <div class="glass rounded-xl p-6 shrink-0 border border-slate-800/50" id="ai-directive">
-                <div class="flex justify-between items-start mb-2">
-                    <h2 class="text-emerald-400 font-bold uppercase text-sm tracking-wider">Active Directives</h2>
+
+            <div class="glass rounded-2xl p-6 shrink-0 border border-slate-800/50 transition-all" id="ai-directive">
+                <div class="flex justify-between items-start mb-2 gap-4">
+                    <div>
+                        <h2 class="text-cyan-400 font-bold uppercase text-sm tracking-wider">Active Directives</h2>
+                        <p class="text-xs text-slate-500 mt-1">Scenario-aware command summary for operators</p>
+                    </div>
                     <span class="text-xs text-slate-500" id="clock">00:00:00</span>
                 </div>
                 <p class="text-2xl font-light" id="staff-rec">Analyzing crowd dispersion parameters...</p>
             </div>
         </div>
 
-        <!-- Wait Times Column -->
-        <div class="col-span-3 glass rounded-xl flex flex-col overflow-hidden">
-             <div class="p-4 border-b border-slate-800 bg-slate-900/50">
-                <h2 class="font-semibold uppercase tracking-wider text-xs text-slate-400">Bottleneck Telemetry (Mins)</h2>
+        <div class="xl:col-span-3 glass rounded-2xl flex flex-col overflow-hidden min-h-[240px]">
+            <div class="p-4 border-b border-slate-800 bg-slate-900/60">
+                <h2 class="font-semibold uppercase tracking-wider text-xs text-slate-400">Bottleneck Telemetry</h2>
             </div>
-            <div class="p-6 space-y-6" id="wait-times">
-                <!-- Javascript populated -->
-            </div>
+            <div class="p-6 space-y-6" id="wait-times"></div>
         </div>
     </div>
 
     <script>
-        const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/data`);
+        let ws = null;
         let logCount = 0;
+        let reconnectTimer = null;
+        let reconnecting = false;
 
-        function updateClock() { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }
+        function titleize(value) {
+            return value.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+        }
+
+        function updateClock() {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+        }
         setInterval(updateClock, 1000);
+        updateClock();
 
         function getColorClass(status) {
-            if(status === 'critical') return 'bg-red-500/20 border-red-500/50 text-red-100 critical-glow';
-            if(status === 'high') return 'bg-orange-500/20 border-orange-500/50 text-orange-200';
-            if(status === 'medium') return 'bg-yellow-500/10 border-yellow-500/30 text-yellow-200';
+            if (status === 'critical') return 'bg-red-500/20 border-red-500/50 text-red-100 critical-glow';
+            if (status === 'high') return 'bg-orange-500/20 border-orange-500/50 text-orange-200';
+            if (status === 'medium') return 'bg-yellow-500/10 border-yellow-500/30 text-yellow-200';
             return 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200';
         }
 
-        ws.onmessage = function(event) {
+        function setActiveScenarioButton(scenario) {
+            document.querySelectorAll('.scenario-btn').forEach(button => {
+                button.classList.remove('scenario-active', 'ring-2', 'ring-offset-2', 'ring-offset-slate-950', 'ring-cyan-400');
+            });
+
+            const activeButton = document.getElementById(`scenario-${scenario}`);
+            if (activeButton) {
+                activeButton.classList.add('scenario-active', 'ring-2', 'ring-offset-2', 'ring-offset-slate-950', 'ring-cyan-400');
+            }
+            document.getElementById('scenario-label').innerText = titleize(scenario);
+        }
+
+        function renderDirective(data, isCritical) {
+            const dirBox = document.getElementById('ai-directive');
+            const panicBtn = document.getElementById('panic-btn');
+            const scenario = data.scenario || 'normal';
+
+            if (data.emergency_override) {
+                dirBox.classList.add('border-red-500', 'bg-red-950/40', 'critical-glow');
+                dirBox.classList.remove('border-slate-800/50');
+                document.getElementById('staff-rec').innerHTML = `<span class="text-red-400 font-bold">EVACUATION ACTIVE</span>: Route all spectators to marked exits and pause concession traffic.`;
+                panicBtn.innerText = 'Disable Evacuation Override';
+                panicBtn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded-md shadow-[0_0_15px_rgba(34,197,94,0.35)] transition-transform active:scale-95 uppercase tracking-wider border border-emerald-400';
+                return;
+            }
+
+            dirBox.classList.remove('border-red-500', 'bg-red-950/40', 'critical-glow');
+            dirBox.classList.add('border-slate-800/50');
+
+            if (scenario === 'peak_rush' || isCritical) {
+                dirBox.classList.add('bg-orange-950/20');
+                document.getElementById('staff-rec').innerHTML = `<span class="text-orange-300 font-bold">PEAK RUSH PLAYBOOK</span>: Shift guests toward Gate C and keep North Gate support staff deployed.`;
+            } else {
+                dirBox.classList.remove('bg-orange-950/20');
+                document.getElementById('staff-rec').innerHTML = `Operations normal. South-side routing has spare capacity and service queues remain manageable.`;
+            }
+
+            panicBtn.innerText = 'Manual Evacuation Override';
+            panicBtn.className = 'bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 px-4 rounded-md shadow-[0_0_15px_rgba(220,38,38,0.35)] transition-transform active:scale-95 uppercase tracking-wider border border-red-400';
+        }
+
+        function handleMessage(event) {
             const data = JSON.parse(event.data);
-            
-            // Render Heatmaps
+            setActiveScenarioButton(data.scenario || 'normal');
+
             let heatHtml = '';
             let isCritical = false;
-            for(const [zone, status] of Object.entries(data.heatmaps)) {
-                if(status === 'critical') isCritical = true;
-                const c = getColorClass(status);
-                const neatZone = zone.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            for (const [zone, status] of Object.entries(data.heatmaps)) {
+                if (status === 'critical') isCritical = true;
+                const colorClass = getColorClass(status);
                 heatHtml += `
-                    <div class="border rounded-xl p-4 flex flex-col justify-center items-center h-full transition-all duration-500 ${c}">
-                         <span class="font-bold text-lg mb-1">${neatZone}</span>
-                         <span class="uppercase text-xs font-mono tracking-widest opacity-80">${status}</span>
+                    <div class="border rounded-2xl p-4 flex flex-col justify-center items-center h-full transition-all duration-500 ${colorClass}">
+                        <span class="font-bold text-lg mb-1">${titleize(zone)}</span>
+                        <span class="uppercase text-xs font-mono tracking-widest opacity-80">${status}</span>
                     </div>
                 `;
             }
             document.getElementById('heatmap-grid').innerHTML = heatHtml;
 
-            // Render Wait Times
             let waitHtml = '';
-            for(const [key, val] of Object.entries(data.wait_times_minutes)) {
-                const neatKey = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                const barWidth = Math.min((val / 45) * 100, 100);
+            for (const [key, val] of Object.entries(data.wait_times_minutes)) {
+                const barWidth = Math.min((val / 30) * 100, 100);
                 const color = val > 20 ? 'bg-red-500' : (val > 10 ? 'bg-orange-400' : 'bg-emerald-400');
                 waitHtml += `
                     <div>
                         <div class="flex justify-between text-sm mb-1">
-                            <span class="text-slate-300">${neatKey}</span>
+                            <span class="text-slate-300">${titleize(key)}</span>
                             <span class="font-mono font-bold">${val}m</span>
                         </div>
-                        <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden">
                             <div class="h-full ${color} transition-all duration-1000 ease-out" style="width: ${barWidth}%"></div>
                         </div>
                     </div>
@@ -122,56 +194,88 @@
             }
             document.getElementById('wait-times').innerHTML = waitHtml;
 
-            // Logs
             const logContainer = document.getElementById('log-container');
-            if(logCount === 0) logContainer.innerHTML = '';
+            if (logCount === 0) logContainer.innerHTML = '';
             data.alerts.forEach(alert => {
                 const node = document.createElement('div');
                 const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-                node.className = `p-3 rounded-md border text-xs ${alert.type === 'critical' ? 'border-red-500/50 bg-red-900/20 text-red-200' : 'border-blue-500/30 bg-blue-900/20 text-blue-200'}`;
-                node.innerHTML = `<span class="opacity-50 mr-2">[${timeStr}]</span> ${alert.msg}`;
+                node.className = `p-3 rounded-lg border text-xs ${alert.type === 'critical' ? 'border-red-500/50 bg-red-950/30 text-red-200' : 'border-cyan-500/30 bg-cyan-950/20 text-cyan-100'}`;
+                node.innerHTML = `<span class="opacity-50 mr-2">[${timeStr}]</span>${alert.msg}`;
                 logContainer.prepend(node);
                 logCount++;
-                if(logCount > 20) logContainer.removeChild(logContainer.lastChild);
+                if (logCount > 20) {
+                    logContainer.removeChild(logContainer.lastChild);
+                    logCount--;
+                }
             });
 
-            // AI Directive
-            const dirBox = document.getElementById('ai-directive');
-            const panicBtn = document.getElementById('panic-btn');
-            
-            if(data.emergency_override) {
-                 dirBox.classList.add('border-red-500', 'bg-red-900/40', 'critical-glow');
-                 dirBox.classList.remove('border-slate-800/50');
-                 document.getElementById('staff-rec').innerHTML = `<span class="text-red-400 font-bold">MANUAL EVACUATION TRIGGERED</span>: Evacuating through main gates.`;
-                 if(panicBtn) {
-                     panicBtn.innerHTML = `✅ ALL CLEAR (DISABLE EVACUATION)`;
-                     panicBtn.className = "bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-1.5 px-4 rounded-md shadow-[0_0_15px_rgba(34,197,94,0.5)] transition-transform active:scale-95 uppercase tracking-wider border border-green-400";
-                 }
-            } else {
-                if(isCritical) {
-                    dirBox.classList.add('border-red-500', 'bg-red-900/20');
-                    dirBox.classList.remove('border-slate-800/50', 'critical-glow');
-                    document.getElementById('staff-rec').innerHTML = `<span class="text-red-400 font-bold">EMERGENCY PROTOCOL</span>: Re-route security perimeter.`;
-                } else {
-                    dirBox.classList.remove('border-red-500', 'bg-red-900/20', 'bg-red-900/40', 'critical-glow');
-                    dirBox.classList.add('border-slate-800/50');
-                    document.getElementById('staff-rec').innerHTML = `Operations Normal. Crowd flow is balanced.`;
-                }
-                
-                if(panicBtn) {
-                     panicBtn.innerHTML = `🚨 Manual Evacuation Override`;
-                     panicBtn.className = "bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-1.5 px-4 rounded-md shadow-[0_0_15px_rgba(220,38,38,0.5)] transition-transform active:scale-95 uppercase tracking-wider border border-red-400";
-                }
+            renderDirective(data, isCritical);
+        }
+
+        function connectWebSocket() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
             }
-        };
+
+            reconnecting = false;
+            ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/data`);
+            ws.onmessage = handleMessage;
+            ws.onopen = function() {
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                    reconnectTimer = null;
+                }
+            };
+
+            const scheduleReconnect = function() {
+                if (reconnecting) {
+                    return;
+                }
+                reconnecting = true;
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                }
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWebSocket();
+                }, 5000);
+            };
+
+            ws.onerror = function() {
+                scheduleReconnect();
+            };
+
+            ws.onclose = function() {
+                scheduleReconnect();
+            };
+        }
 
         async function togglePanic() {
             try {
-                await fetch('/api/v1/panic', {method: 'POST'});
+                await fetch('/api/v1/panic', { method: 'POST' });
             } catch (err) {
-                console.error("Failed to trigger panic mode", err);
+                console.error('Failed to toggle panic mode', err);
             }
         }
+
+        async function setScenario(scenario) {
+            try {
+                const response = await fetch('/api/v1/scenario', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scenario })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    setActiveScenarioButton(result.scenario);
+                }
+            } catch (err) {
+                console.error('Failed to switch scenario', err);
+            }
+        }
+
+        setActiveScenarioButton('normal');
+        connectWebSocket();
     </script>
 </body>
 </html>
