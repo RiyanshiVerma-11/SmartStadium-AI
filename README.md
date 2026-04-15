@@ -58,7 +58,7 @@ You only need Docker installed on your machine to run the entire stack.
 
 **1. Clone and Navigate:**
 ```bash
-cd "23 ai stadium"
+cd "SmartStadium AI"
 ```
 
 **2. Spin up the Container:**
