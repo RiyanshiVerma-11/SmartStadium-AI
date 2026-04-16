@@ -95,6 +95,18 @@ uvicorn app.main:app --reload
 
 ---
 
+## 🔐 Secure Onboarding & Persona Logic
+
+SmartStadium AI implements a robust, multi-persona gateway to ensure that only authorized users access critical stadium operations.
+
+- **Verified Identification**: Strict form validation for email and phone inputs prevents anonymous or "ghost" logins.
+- **OTP Integrity Proof**: A verified 4-digit code cycle ensures device-level synchronization before persona selection.
+- **Protected Command Center**: The Staff/Admin portal is gated by a secondary authorization layer.
+    - **Authorized Access Code**: Restricted areas are locked behind a secure access code (default: `admin123` for demo).
+    - **Visual Persona Distinctions**: Clear UI separation between the Fan dashboard and the High-Level Command Center.
+
+---
+
 ## 🛡️ Safety & Accessibility
 
 - **Accessibility-First Routing**: Profile-based navigation (Wheelchair/Low Vision) is baked into the core AI logic.

@@ -78,7 +78,7 @@
                     <label id="input-label" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Email Address</label>
                     <input id="auth-input" type="text" placeholder="Enter your email" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 transition-all text-lg">
                 </div>
-                <button onclick="showStep('otp-verify')" class="w-full py-4 rounded-2xl bg-blue-600 font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all">
+                <button onclick="validateAuthInput()" class="w-full py-4 rounded-2xl bg-blue-600 font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all">
                     Send Verification Code
                 </button>
                 <button onclick="showStep('login-methods')" class="w-full text-sm font-bold text-slate-500 hover:text-slate-300">Back to all methods</button>
@@ -96,7 +96,7 @@
                     <input type="text" maxlength="1" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
                     <input type="text" maxlength="1" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
                 </div>
-                <button onclick="showStep('role-select')" class="w-full py-4 rounded-2xl bg-blue-600 font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all">
+                <button onclick="validateOTP()" class="w-full py-4 rounded-2xl bg-blue-600 font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all">
                     Verify & Continue
                 </button>
                 <p class="text-sm text-slate-500">Didn't receive code? <button class="text-blue-400 font-bold">Resend</button></p>
@@ -119,10 +119,31 @@
                     <button onclick="selectRole('admin')" class="role-card group flex items-center gap-4 p-5 rounded-[2rem] border border-white/10 bg-white/5 hover:border-blue-500/50 transition-all text-left">
                         <div class="w-12 h-12 flex items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all">🧠</div>
                         <div>
-                            <p class="font-bold text-lg">Admin</p>
+                            <div class="flex items-center gap-2">
+                                <p class="font-bold text-lg">Admin</p>
+                                <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-white/5">LOCKED</span>
+                            </div>
                             <p class="text-xs text-slate-500">Full system oversight</p>
                         </div>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Password Modal -->
+        <div id="admin-pass-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
+            <div class="glass relative w-full max-w-sm rounded-[2.5rem] p-8 border border-white/10">
+                <div class="text-center mb-6">
+                    <span class="text-3xl">🔐</span>
+                    <h3 class="text-xl font-bold mt-4">Restricted Access</h3>
+                    <p class="text-[10px] text-slate-500 mt-2 uppercase tracking-widest">Admin Authorization Required</p>
+                </div>
+                <div class="space-y-4">
+                    <input id="admin-password" type="password" placeholder="••••" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 transition-all text-center text-2xl tracking-[0.5em]">
+                    <p id="admin-error" class="text-rose-500 text-[10px] font-bold text-center hidden uppercase tracking-widest">Incorrect Access Code</p>
+                    <button onclick="checkAdminPassword()" class="w-full py-4 rounded-2xl bg-indigo-600 font-bold text-lg shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all">Authorize</button>
+                    <button onclick="hideAdminModal()" class="w-full text-xs font-bold text-slate-500 uppercase tracking-widest py-2">Cancel</button>
                 </div>
             </div>
         </div>
@@ -149,15 +170,59 @@
             }
         }
 
-        function fakeLogin(type) {
-            console.log('Fake login with:', type);
+        function validateAuthInput() {
+            const input = document.getElementById('auth-input');
+            if (input.value.trim().length < 5) {
+                input.classList.add('border-rose-500', 'bg-rose-500/5');
+                input.placeholder = 'Value required to continue...';
+                setTimeout(() => {
+                    input.classList.remove('border-rose-500', 'bg-rose-500/5');
+                    input.placeholder = input.type === 'email' ? 'Enter your email' : '+1 (555) 000-0000';
+                }, 2000);
+                return;
+            }
+            showStep('otp-verify');
+        }
+
+        function validateOTP() {
+            const inputs = document.querySelectorAll('.otp-input');
+            let filled = true;
+            inputs.forEach(i => { if (!i.value) filled = false; });
+            
+            if (!filled) {
+                inputs.forEach(i => i.classList.add('border-rose-500'));
+                setTimeout(() => inputs.forEach(i => i.classList.remove('border-rose-500')), 2000);
+                return;
+            }
             showStep('role-select');
         }
 
         function selectRole(role) {
             console.log('Role selected:', role);
-            if (role === 'fan') window.location.href = '/fan';
-            else if (role === 'staff' || role === 'admin') window.location.href = '/staff';
+            if (role === 'fan') {
+                window.location.href = '/fan';
+            } else if (role === 'admin') {
+                document.getElementById('admin-pass-modal').classList.remove('hidden');
+                document.getElementById('admin-password').focus();
+            }
+        }
+
+        function checkAdminPassword() {
+            const pass = document.getElementById('admin-password').value;
+            const error = document.getElementById('admin-error');
+            
+            if (pass === 'admin123') {
+                window.location.href = '/staff'; // Command Center
+            } else {
+                error.classList.remove('hidden');
+                document.getElementById('admin-password').value = '';
+                setTimeout(() => error.classList.add('hidden'), 3000);
+            }
+        }
+
+        function hideAdminModal() {
+            document.getElementById('admin-pass-modal').classList.add('hidden');
+            document.getElementById('admin-password').value = '';
         }
 
         // Auto-focus next OTP input
