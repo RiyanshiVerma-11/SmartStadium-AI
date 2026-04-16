@@ -168,14 +168,21 @@
                             </div>
                         </div>
                     </div>
-                    <div class="rounded-[2rem] bg-white p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-                        <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                            <span>Weather</span>
-                            <span id="weather-icon">☀️</span>
+                    <div class="rounded-[2rem] bg-gradient-to-br from-amber-300 via-orange-400 to-amber-600 p-6 text-white shadow-lg shadow-amber-200/50 flex flex-col justify-between overflow-hidden relative group">
+                        <!-- Subtle sun ray effect -->
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 blur-3xl rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                        
+                        <div class="flex items-center justify-between text-[11px] font-black uppercase tracking-widest opacity-90">
+                            <span>Live Weather</span>
+                            <span id="weather-icon" class="text-2xl animate-spin-slow">☀️</span>
                         </div>
-                        <div class="mt-2">
-                            <h3 id="weather-temp" class="text-3xl font-black text-slate-800">24°C</h3>
-                            <p id="weather-cond" class="text-xs font-bold text-slate-500">Clear Sky</p>
+                        <div class="mt-6">
+                            <h3 id="weather-temp" class="text-4xl font-black">28°C</h3>
+                            <div class="flex items-center gap-2 mt-1">
+                                <p id="weather-cond" class="text-xs font-bold opacity-90">Sunny Heaven</p>
+                                <span class="text-[10px] opacity-70">|</span>
+                                <p class="text-[10px] font-medium opacity-80">Feels like 30°C</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -191,23 +198,23 @@
                         <button onclick="votePoll('player_1')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
                             <div class="relative z-10 flex justify-between items-center">
                                 <span class="font-bold text-slate-700">Leo "Lion" Messi</span>
-                                <span class="poll-pct text-xs font-black text-indigo-600">42%</span>
+                                <span class="poll-pct hidden text-xs font-black text-indigo-900">42%</span>
                             </div>
-                            <div class="poll-bar absolute inset-0 bg-indigo-50 origin-left transition-all duration-1000" style="width: 42%"></div>
+                            <div class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 42%"></div>
                         </button>
                         <button onclick="votePoll('player_2')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
                             <div class="relative z-10 flex justify-between items-center">
                                 <span class="font-bold text-slate-700">Tiger Woods</span>
-                                <span class="poll-pct text-xs font-black text-indigo-600">38%</span>
+                                <span class="poll-pct hidden text-xs font-black text-indigo-900">38%</span>
                             </div>
-                            <div class="poll-bar absolute inset-0 bg-indigo-50 origin-left transition-all duration-1000" style="width: 38%"></div>
+                            <div class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 38%"></div>
                         </button>
                         <button onclick="votePoll('other')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
                             <div class="relative z-10 flex justify-between items-center">
                                 <span class="font-bold text-slate-700">Someone Else</span>
-                                <span class="poll-pct text-xs font-black text-indigo-600">20%</span>
+                                <span class="poll-pct hidden text-xs font-black text-indigo-900">20%</span>
                             </div>
-                            <div class="poll-bar absolute inset-0 bg-indigo-50 origin-left transition-all duration-1000" style="width: 20%"></div>
+                            <div class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 20%"></div>
                         </button>
                     </div>
                 </div>
@@ -379,6 +386,8 @@
     </div>
     <script>
         let totalPoints = 240, cartTotal = 0, activeDiscount = 0, ws = null, reconnectTimer = null, reconnecting = false, isDarkMode = false;
+        let claimedBounties = new Set();
+        let lastBounties = []; // Keep track of current bounties for re-rendering
         function titleize(v){return v.split('_').map(p=>p.charAt(0).toUpperCase()+p.slice(1)).join(' ')}
         function serviceEmoji(k){if(k.includes('food'))return'🍔'; if(k.includes('restroom'))return'🚻'; if(k.includes('merch'))return'🧢'; return'🛂'}
         function switchTab(tab){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('bg-sky-100','text-sky-700');b.classList.add('text-slate-500')});document.getElementById(`tab-${tab}`).classList.add('active');const btn=document.querySelector(`[data-tab-btn="${tab}"]`);btn.classList.add('bg-sky-100','text-sky-700');btn.classList.remove('text-slate-500')}
@@ -407,7 +416,35 @@
             document.getElementById('map-service-note').innerText = `Navigating to ${titleize(key)}...`;
         }
         function renderQueues(waitTimes){const wrap=document.getElementById('fan-waits');wrap.innerHTML='';Object.entries(waitTimes).forEach(([k,v])=>{const row=document.createElement('button');row.onclick=()=>navigateToService(k);row.className='w-full text-left rounded-[1.5rem] bg-slate-50 p-4 active:scale-95 transition-all hover:bg-slate-100 hover:shadow-sm';row.innerHTML=`<div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.26em]" style="color:var(--muted)">${serviceEmoji(k)} ${titleize(k)}</p><p class="mt-2 text-sm" style="color:var(--muted)">${v>12?'High traffic':'Comfortable flow'}</p></div><div class="flex items-center gap-3"><p class="text-2xl font-black ${v>12?'text-rose-600':'text-emerald-600'}">${v}<span class="text-sm text-slate-400">m</span></p><div class="rounded-full bg-slate-200 p-2"><span class="block w-4 h-4 text-center leading-none text-[10px] grayscale">📍</span></div></div></div>`;wrap.appendChild(row)})}
-        function renderBounties(bounties){const area=document.getElementById('bounty-area'),list=document.getElementById('bounty-list');if(!bounties||bounties.length===0){area.classList.add('hidden');list.innerHTML='';return}area.classList.remove('hidden');list.innerHTML='';bounties.forEach(b=>{const card=document.createElement('button');card.className='w-full rounded-[1.4rem] border border-amber-200 bg-white px-4 py-3 text-left';card.innerHTML=`<div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.26em] text-amber-700">🏆 Load balancing bounty</p><p class="mt-2 text-sm" style="color:var(--muted)">${b.reason}</p></div><span class="rounded-full bg-amber-500 px-3 py-2 text-sm font-black text-white">${b.points} PTR</span></div>`;card.onclick=()=>{totalPoints+=Number(String(b.points).replace(/[^0-9]/g,''))||0;updatePointsUI()};list.appendChild(card)})}
+        function renderBounties(bounties){
+            const area=document.getElementById('bounty-area'),list=document.getElementById('bounty-list');
+            if(!bounties) return;
+            lastBounties = bounties; // Update cache
+            
+            // Filter out claimed
+            const active = bounties.filter(b => !claimedBounties.has(b.reason));
+            
+            if(active.length===0){
+                area.classList.add('hidden');
+                list.innerHTML='';
+                return;
+            }
+            
+            area.classList.remove('hidden');
+            list.innerHTML='';
+            active.forEach(b=>{
+                const card=document.createElement('button');
+                card.className='w-full rounded-[1.4rem] border border-amber-200 bg-white px-4 py-3 text-left active:scale-95 transition-transform';
+                card.innerHTML=`<div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.26em] text-amber-700">🏆 Load balancing bounty</p><p class="mt-2 text-sm" style="color:var(--muted)">${b.reason}</p></div><span class="rounded-full bg-amber-500 px-3 py-2 text-sm font-black text-white">${b.points} PTR</span></div>`;
+                card.onclick=()=>{
+                    claimedBounties.add(b.reason);
+                    totalPoints+=Number(String(b.points).replace(/[^0-9]/g,''))||0;
+                    updatePointsUI();
+                    renderBounties(lastBounties); // Immediate re-render
+                };
+                list.appendChild(card)
+            })
+        }
         function updatePointsUI(){document.getElementById('flow-points').innerText=totalPoints;document.getElementById('order-points-balance').innerText=totalPoints;document.getElementById('ticket-points-badge').innerText=totalPoints;document.getElementById('reward-discount-small').disabled=totalPoints<120||activeDiscount>=2;document.getElementById('reward-discount-large').disabled=totalPoints<260||activeDiscount>=5}
         function updateCheckoutTotal(){document.getElementById('checkout-btn').innerText=`Checkout | $${Math.max(cartTotal-activeDiscount,0).toFixed(2)}`}
         function addToCart(price){cartTotal+=price;updateCheckoutTotal()}
@@ -561,6 +598,18 @@
             if(path) path.classList.toggle('hidden');
             // Visual feedback on button
             if(event) event.target.classList.toggle('bg-emerald-200');
+        }
+        function votePoll(opt){
+            // Reveal result text
+            document.querySelectorAll('.poll-pct').forEach(p => p.classList.remove('hidden'));
+            // Animate bars
+            document.querySelectorAll('.poll-bar').forEach(b => b.classList.remove('scale-x-0'));
+            // Disable further voting
+            document.querySelectorAll('.poll-opt').forEach(b => {
+                b.onclick = null;
+                b.classList.remove('hover:border-indigo-300');
+                if(!b.innerHTML.includes(opt)) b.classList.add('opacity-50');
+            });
         }
         function renderTelemetry(data){
             document.getElementById('scenario-pill').innerText=titleize(data.scenario);
