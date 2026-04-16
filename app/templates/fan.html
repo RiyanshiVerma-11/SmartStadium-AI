@@ -3,670 +3,617 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stadium Companion</title>
+    <title>StadiumFlow Fan Companion</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .glass { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(10px); }
-        .dark .glass { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .emergency-mode { background: #dc2626 !important; color: white !important; animation: pulseRed 1s infinite alternate; }
-        .slide-up { animation: slideUp 0.25s ease-out forwards; }
-        .bot-shell { touch-action: none; }
-        .bot-shell.dragging { cursor: grabbing; }
-        .bot-handle { cursor: grab; }
-        @keyframes pulseRed { 0% { background: #dc2626; } 100% { background: #7f1d1d; } }
+        :root { --bg: linear-gradient(180deg, #eef6ff 0%, #fff7ed 100%); --panel: rgba(255,255,255,.9); --text:#0f172a; --muted:#64748b; }
+        .dark-mode { --bg: linear-gradient(180deg, #09101d 0%, #131c31 100%); --panel: rgba(15,23,42,.9); --text:#e2e8f0; --muted:#94a3b8; }
+        body { background: var(--bg); color: var(--text); transition: .2s; }
+        .glass { background: var(--panel); backdrop-filter: blur(16px); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .chat-shell { box-shadow: 0 24px 60px rgba(15,23,42,.24); }
+        .slide-up { animation: slideUp .25s ease-out forwards; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .float-react { animation: floatUp 1.5s ease-out forwards; }
+        @keyframes floatUp { 
+            0% { transform: translateY(0) scale(1); opacity: 1; } 
+            100% { transform: translateY(-100px) scale(1.5); opacity: 0; } 
+        }
+        .pulse-glow { animation: pulseGlow 2s infinite; }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.1); }
+        }
     </style>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
-    <div id="offline-banner" class="hidden absolute top-0 w-full z-[200] bg-orange-500 text-white font-bold p-3 text-center shadow-lg text-sm">
-        Low network signal. Offline edge mode fallback active.
-    </div>
-
-    <div id="emergency-overlay" class="hidden absolute inset-0 z-[300] emergency-mode flex flex-col items-center justify-center p-6 text-center">
-        <div class="text-6xl font-black mb-4">!</div>
-        <h1 class="text-4xl font-black mb-2 uppercase tracking-widest">Evacuate</h1>
-        <p class="text-lg font-medium mb-8">Follow staff instructions immediately and proceed to the nearest safe exit.</p>
-        <div class="bg-white/20 p-6 rounded-2xl border border-white/40 shadow-xl backdrop-blur-md">
-            <h3 class="text-sm uppercase tracking-widest font-bold mb-4 opacity-80">Safe route</h3>
-            <div class="text-2xl font-black bg-white text-red-600 py-3 px-6 rounded-full shadow-2xl animate-pulse">
-                Gate C to East Exits
-            </div>
+<body class="min-h-screen">
+    <div id="offline-banner" class="hidden sticky top-0 z-50 bg-amber-500 px-4 py-3 text-center text-sm font-bold text-white">Low network signal detected. Cached routes and offline guidance are active.</div>
+    <div id="emergency-overlay" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-red-700/95 p-6 text-center text-white">
+        <div class="max-w-lg rounded-[2rem] border border-white/25 bg-white/10 p-8 backdrop-blur">
+            <p class="text-xs font-bold uppercase tracking-[0.35em]">Emergency Override</p>
+            <h1 class="mt-3 text-5xl font-black">Evacuate</h1>
+            <p class="mt-4 text-lg">Follow staff instructions immediately and use the nearest safe exit shown by the command center.</p>
+            <p id="emergency-route" class="mt-6 rounded-full bg-white px-6 py-3 text-lg font-black text-red-700">Gate C to East Exits</p>
         </div>
     </div>
-
-    <div class="max-w-md mx-auto min-h-screen relative shadow-2xl bg-white dark:bg-slate-950 flex flex-col overflow-hidden">
-        <div id="ticket-modal" class="hidden absolute inset-0 z-[150] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-6">
-            <div class="bg-white dark:bg-slate-800 rounded-3xl w-full p-6 shadow-2xl transform slide-up relative border border-slate-200 dark:border-slate-700">
-                <button onclick="document.getElementById('ticket-modal').classList.add('hidden')" class="absolute top-4 right-4 bg-gray-100 dark:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center text-gray-500 font-bold hover:bg-gray-200 transition-colors">X</button>
-                <h2 class="text-xl font-bold mb-4 text-center">Your VIP Ticket</h2>
-                <div class="bg-gray-100 dark:bg-slate-900 rounded-xl p-4 flex flex-col items-center justify-center border border-dashed border-gray-300 dark:border-slate-600 mb-6 shadow-inner">
-                    <div class="w-48 h-48 bg-white p-2 rounded shadow-md flex items-center justify-center">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SMARTSTADIUM_VIP_TICKET_SEC112" class="w-full h-full mix-blend-multiply opacity-95" alt="QR Code">
+    <div id="ticket-modal" class="hidden fixed inset-0 z-[108] bg-slate-950/50 backdrop-blur-sm p-6">
+        <div class="mx-auto mt-16 max-w-sm rounded-[2rem] bg-white p-6 shadow-2xl dark-mode:bg-slate-900">
+            <div class="flex items-center justify-between gap-4">
+                <div><p class="text-xs font-bold uppercase tracking-[0.28em] text-fuchsia-600">🎟️ VIP Ticket</p><h2 class="mt-2 text-2xl font-black">Priority entry pass</h2></div>
+                <button onclick="toggleTicket(false)" class="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Close</button>
+            </div>
+            <div class="mt-5 rounded-[1.8rem] bg-gradient-to-br from-fuchsia-500 via-indigo-600 to-sky-500 p-[1px]">
+                <div class="rounded-[1.7rem] bg-white p-5 dark-mode:bg-slate-950">
+                    <div class="flex items-start justify-between gap-4">
+                        <div><p id="ticket-tier" class="text-xs font-bold uppercase tracking-[0.28em] text-fuchsia-600">VIP ACCESS</p><p class="mt-2 text-2xl font-black">StadiumFlow Priority</p><p id="ticket-seat" class="mt-2 text-sm" style="color:var(--muted)">Section 112 | Express lane</p></div>
+                        <div class="rounded-2xl bg-slate-900 px-3 py-2 text-white"><p class="text-[10px] uppercase tracking-[0.24em] text-slate-400">PTR</p><p class="text-sm font-black"><span id="ticket-points-badge">240</span></p></div>
                     </div>
-                    <p class="font-mono text-gray-600 dark:text-gray-400 mt-4 text-sm tracking-widest font-bold">SEC 112 | ROW F | SEAT 4</p>
+                    <div class="mt-5 rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 p-4 text-center dark-mode:border-slate-700 dark-mode:bg-slate-900">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=SMARTSTADIUM_VIP_TICKET_SECTION_112" alt="VIP QR Code" class="mx-auto h-40 w-40 rounded-xl bg-white p-2">
+                        <p class="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-slate-500">Scan at premium lane</p>
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-3">
+                        <div class="rounded-[1.3rem] bg-slate-50 p-3 dark-mode:bg-slate-900"><p class="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-600">🚀 Benefit</p><p class="mt-2 text-sm" style="color:var(--muted)">Fast-track gate access</p></div>
+                        <div class="rounded-[1.3rem] bg-slate-50 p-3 dark-mode:bg-slate-900"><p class="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-600">🍔 Pickup</p><p id="ticket-pickup" class="mt-2 text-sm" style="color:var(--muted)">Suite lane concessions</p></div>
+                    </div>
                 </div>
-                <button class="w-full bg-slate-900 dark:bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-black transition shadow-lg active:scale-95" onclick="showToast('Ticket Ready', 'VIP pass verified successfully.')">Tap to Scan</button>
             </div>
         </div>
-
-        <div id="order-sheet" class="hidden absolute inset-0 z-[150] bg-black/40 backdrop-blur-sm flex items-end">
-            <div class="bg-white dark:bg-slate-900 w-full rounded-t-3xl p-6 shadow-2xl relative slide-up border-t border-slate-200 dark:border-slate-700">
-                <div class="w-12 h-1.5 bg-gray-300 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
-                <button onclick="document.getElementById('order-sheet').classList.add('hidden')" class="absolute top-4 right-6 text-gray-400 font-bold hover:text-gray-600">Close</button>
-                <h2 class="text-xl font-black mb-4 tracking-tight">Express Concessions</h2>
-                <div class="space-y-4 mb-6">
-                    <div class="flex justify-between items-center p-4 bg-gray-50 dark:bg-slate-800/80 rounded-xl border border-gray-100 dark:border-slate-700 hover:border-blue-500 transition-colors">
-                        <div>
-                            <h4 class="font-bold flex items-center gap-2">Stadium Hot Dog <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-bold">Fast</span></h4>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Classic all-beef frank</p>
-                        </div>
-                        <button class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition-transform" onclick="addToCart(6.50)">+$6.50</button>
-                    </div>
-                    <div class="flex justify-between items-center p-4 bg-gray-50 dark:bg-slate-800/80 rounded-xl border border-gray-100 dark:border-slate-700 hover:border-blue-500 transition-colors">
-                        <div>
-                            <h4 class="font-bold flex items-center gap-2">Craft IPA Beer</h4>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Must show ID at pickup</p>
-                        </div>
-                        <button class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition-transform" onclick="addToCart(12.00)">+$12.00</button>
-                    </div>
+    </div>
+    <div id="order-sheet" class="hidden fixed inset-0 z-[105] bg-slate-950/40 backdrop-blur-sm">
+        <div class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-[2rem] bg-white p-6 shadow-2xl slide-up dark-mode:bg-slate-950">
+            <div class="mx-auto mb-5 h-1.5 w-14 rounded-full bg-slate-200 dark-mode:bg-slate-700"></div>
+            <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.28em] text-amber-600">🍔 Order and Rewards</p><h2 class="mt-2 text-2xl font-black">Express Concessions</h2></div><button onclick="toggleOrderSheet(false)" class="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Close</button></div>
+            <div class="mt-5 space-y-3">
+                <div class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"><div><p class="font-bold">🌭 Stadium Hot Dog</p><p class="mt-1 text-sm" style="color:var(--muted)">Classic all-beef frank</p></div><button onclick="addToCart(6.50)" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">+$6.50</button></div>
+                <div class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"><div><p class="font-bold">🍺 Craft IPA Beer</p><p class="mt-1 text-sm" style="color:var(--muted)">ID check at pickup</p></div><button onclick="addToCart(12.00)" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">+$12.00</button></div>
+            </div>
+            <div class="mt-5 rounded-[1.7rem] border border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-white p-4">
+                <div class="flex items-center justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-[0.24em] text-amber-600">🏆 Flow Rewards</p><p class="mt-1 text-sm font-semibold">Redeem points for instant food discounts.</p></div><div class="rounded-2xl bg-amber-500 px-3 py-2 text-center text-white"><p class="text-[10px] uppercase tracking-[0.22em] opacity-80">Balance</p><p class="text-sm font-black"><span id="order-points-balance">240</span> PTR</p></div></div>
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                    <button id="reward-discount-small" onclick="redeemReward('discount_small')" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left disabled:opacity-40"><p class="text-xs font-bold uppercase tracking-[0.22em] text-amber-600">$2 Off</p><p class="mt-1 text-sm font-semibold">Cost: 120 PTR</p></button>
+                    <button id="reward-discount-large" onclick="redeemReward('discount_large')" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left disabled:opacity-40"><p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-600">$5 Off</p><p class="mt-1 text-sm font-semibold">Cost: 260 PTR</p></button>
                 </div>
-                <div class="mb-5 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-white p-4 dark:border-amber-700/30 dark:from-amber-950/30 dark:via-slate-900 dark:to-slate-900">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <p class="text-xs font-bold uppercase tracking-[0.24em] text-amber-600 dark:text-amber-300">Flow Rewards</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-800 dark:text-white">Use your points for instant concessions discounts.</p>
-                        </div>
-                        <div class="rounded-2xl bg-amber-500 px-3 py-2 text-center text-white shadow-sm">
-                            <p class="text-[10px] uppercase tracking-[0.22em] opacity-80">Balance</p>
-                            <p class="text-sm font-black"><span id="order-points-balance">240</span> PTR</p>
-                        </div>
-                    </div>
-                    <div class="mt-3 grid grid-cols-2 gap-2">
-                        <button id="reward-discount-small" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left transition hover:border-amber-500 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" onclick="redeemReward('discount_small')">
-                            <p class="text-xs font-bold uppercase tracking-[0.22em] text-amber-600 dark:text-amber-300">$2 Off</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-800 dark:text-white">Cost: 120 PTR</p>
-                        </button>
-                        <button id="reward-discount-large" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left transition hover:border-amber-500 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" onclick="redeemReward('discount_large')">
-                            <p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">$5 Off</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-800 dark:text-white">Cost: 260 PTR</p>
-                        </button>
-                    </div>
-                    <p id="reward-status" class="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">Redeem points to lower your checkout total instantly.</p>
+                <p id="reward-status" class="mt-3 text-xs font-medium" style="color:var(--muted)">Redeem points to lower your checkout total instantly.</p>
+            </div>
+            <p id="delivery-summary" class="mt-4 text-center text-xs font-bold text-emerald-600">Delivering directly to Section 112 in 5 to 8 minutes</p>
+            <button id="checkout-btn" onclick="submitOrder()" class="mt-4 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Checkout | $0.00</button>
+            
+            <!-- Live Tracking Section -->
+            <div id="order-tracking" class="hidden mt-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">Order Status</p>
+                    <span id="tracking-status" class="rounded-full bg-sky-100 px-3 py-1 text-[10px] font-bold text-sky-700">Preparing</span>
                 </div>
-                <p class="text-xs text-center text-emerald-600 dark:text-emerald-400 font-bold mb-4">Delivering directly to SEC 112 in 5 to 8 minutes</p>
-                <button id="checkout-btn" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 active:scale-95" onclick="submitOrder()">Checkout | $0.00</button>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div id="tracking-progress" class="h-full bg-sky-500 transition-all duration-1000" style="width: 15%"></div>
+                </div>
+                <p id="tracking-msg" class="text-xs font-medium text-slate-600">The kitchen has received your order and is starting prep.</p>
             </div>
         </div>
-
-        <header class="glass sticky top-0 z-50 px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shadow-sm" id="main-header">
-            <div>
-                <h1 class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-cyan-500">Stadium<span class="font-light text-slate-500 dark:text-slate-400">Flow</span></h1>
-                <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-1 uppercase tracking-widest" id="live-indicator">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping absolute"></span>
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 relative"></span>
-                    Live Sync
-                </p>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-600/50 px-3 py-1.5 rounded-full shadow-sm">
-                    <span class="text-xs font-bold text-amber-700 dark:text-amber-400" id="flow-points">240</span>
-                    <span class="text-xs font-bold text-amber-700 dark:text-amber-400">PTR</span>
-                </div>
-                <a href="/" class="text-sm px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm text-slate-500">Exit</a>
+    </div>
+    <div class="mx-auto flex min-h-screen max-w-md flex-col overflow-hidden bg-white shadow-2xl shadow-slate-300/60 dark-mode:bg-slate-950">
+        <header id="main-header" class="glass sticky top-0 z-40 border-b border-slate-200 px-5 py-4">
+            <div class="flex items-center justify-between gap-4">
+                <div><a href="/" class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">Back</a><h1 class="mt-2 text-2xl font-black">StadiumFlow</h1><p id="live-indicator" class="mt-1 text-xs font-bold uppercase tracking-[0.28em] text-emerald-600">Live Sync Active</p></div>
+                <div class="rounded-3xl bg-slate-950 px-4 py-2 text-white"><p class="text-[10px] uppercase tracking-[0.28em] text-slate-400">Flow Points</p><p class="text-lg font-black"><span id="flow-points">240</span> PTR</p></div>
             </div>
         </header>
-
-        <main class="flex-1 p-6 overflow-y-auto space-y-6 pb-24">
-            <div id="ai-module" class="bot-shell hidden absolute right-4 top-24 z-[120] w-[min(22rem,calc(100%-2rem))] rounded-3xl border border-sky-300/40 bg-white/95 text-slate-900 shadow-[0_24px_60px_rgba(14,116,144,0.22)] backdrop-blur-xl transition-all duration-300 dark:border-sky-500/20 dark:bg-slate-900/95 dark:text-slate-100">
-                <div id="ai-handle" class="bot-handle flex items-center justify-between gap-3 rounded-t-3xl bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-3 text-white">
-                    <div class="flex items-center gap-3">
-                        <div id="ai-icon" class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 text-sm font-black shadow-inner">AI</div>
+        <main class="relative flex-1 overflow-y-auto px-5 pb-28 pt-5">
+            <section id="tab-map" class="tab-panel space-y-5">
+                <div class="rounded-[2rem] border border-slate-200 p-5">
+                    <div class="flex items-center justify-between gap-4">
                         <div>
-                            <p class="text-sm font-black">Stadium AI Bot</p>
-                            <p class="text-[10px] uppercase tracking-[0.25em] text-sky-100/80">Drag me anywhere</p>
+                            <p class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">🗺️ Live Radar</p>
+                            <h2 class="mt-2 text-xl font-black">Smart Venue Navigation</h2>
                         </div>
+                        <p id="map-service-note" class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">GPS Active</p>
                     </div>
-                    <span id="scenario-pill" class="rounded-full bg-white/15 px-2 py-1 text-[10px] uppercase tracking-[0.25em]">Normal</span>
-                </div>
+                    
+                    <!-- POI Toggles -->
+                    <div class="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        <button onclick="togglePOI('washroom')" class="poi-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm active:bg-sky-50 transition-colors">🚻 Washrooms</button>
+                        <button onclick="togglePOI('food')" class="poi-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm active:bg-sky-50 transition-colors">🍔 Food Stalls</button>
+                        <button onclick="togglePOI('exit')" class="poi-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm active:bg-sky-50 transition-colors">🚪 Exits</button>
+                        <button onclick="toggleSmartPath()" class="poi-btn flex-shrink-0 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm transition-colors">✨ Crowd-Free Path</button>
+                    </div>
 
-                <div class="space-y-3 p-4">
-                    <div id="ai-conversation" class="max-h-60 space-y-3 overflow-y-auto rounded-2xl bg-slate-50 p-3 dark:bg-slate-950/70">
-                        <div class="flex justify-start">
-                            <div class="max-w-[85%] rounded-2xl rounded-tl-md bg-sky-500 px-3 py-2 text-sm text-white shadow-sm">
-                                <p id="ai-chat">Hello. I am syncing with the live stadium state now.</p>
-                                <p id="ai-reason" class="mt-2 text-[10px] uppercase tracking-[0.18em] text-sky-100/80">Rule engine initialized. Waiting for live telemetry.</p>
+                    <div class="relative mt-4 overflow-hidden rounded-[1.75rem] border border-slate-200">
+                        <iframe id="google-map-frame" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3311.23351939109!2d-118.34149022372439!3d33.95340147319409!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80c2b740523e85bb%3A0xe7a5cda11a2f64fa!2sSoFi%20Stadium!5e0!3m2!1sen!2sus!4v1713200000000!5m2!1sen!2sus" width="100%" height="420" style="border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                        
+                        <!-- Smart Overlays -->
+                        <div class="pointer-events-none absolute inset-0">
+                            <!-- Hotspot -->
+                            <div id="map-hotspot" class="absolute left-[50%] top-[38%] h-6 w-6 -translate-x-1/2 rounded-full bg-sky-500/45 blur-sm animate-ping"></div>
+                            
+                            <!-- Simulated Smart Path (SVG) -->
+                            <svg id="smart-path-overlay" class="absolute inset-0 w-full h-full hidden" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                <path d="M50 80 Q 60 70, 70 50 T 80 20" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="4,4" class="animate-[dash_2s_linear_infinite]" />
+                            </svg>
+                            
+                            <!-- POI Markers (Simulated) -->
+                            <div id="washroom-markers" class="hidden">
+                                <div class="absolute left-[30%] top-[40%] text-xl">🚻</div>
+                                <div class="absolute left-[70%] top-[60%] text-xl">🚻</div>
+                            </div>
+                            <div id="food-markers" class="hidden">
+                                <div class="absolute left-[40%] top-[20%] text-xl">🍔</div>
+                                <div class="absolute left-[60%] top-[80%] text-xl">🍿</div>
                             </div>
                         </div>
                     </div>
-
-                    <div class="grid grid-cols-2 gap-2">
-                        <button class="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-left text-xs font-bold text-sky-700 transition hover:bg-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300" onclick="submitAIQuery('Where is the shortest line right now?')">Shortest line</button>
-                        <button class="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-left text-xs font-bold text-red-700 transition hover:bg-red-100 dark:border-slate-700 dark:bg-slate-800 dark:text-red-300" onclick="submitAIQuery('Help, emergency near section 112.')">Emergency help</button>
+                </div>
+                <style>
+                    @keyframes dash { to { stroke-dashoffset: -20; } }
+                    .scrollbar-hide::-webkit-scrollbar { display: none; }
+                    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+                </style>
+                <button onclick="toggleTicket(true)" class="rounded-[2rem] bg-gradient-to-r from-fuchsia-500 via-indigo-600 to-sky-500 p-[1px] text-left"><div class="rounded-[1.9rem] bg-white p-5"><div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.28em] text-fuchsia-600">🎟️ VIP Ticket</p><h2 class="mt-2 text-xl font-black">Open your ticket pass</h2><p id="ticket-summary" class="mt-2 text-sm" style="color:var(--muted)">VIP access active for Section 112.</p></div><div class="rounded-2xl bg-slate-950 px-3 py-2 text-white"><p class="text-[10px] uppercase tracking-[0.24em] text-slate-400">Tap</p><p class="text-sm font-black">OPEN</p></div></div></div></button>
+                <div class="rounded-[2rem] border border-slate-200 p-5"><p class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">🍔 Ticket and Pickup</p><div class="mt-4 rounded-[1.5rem] bg-slate-50 p-4"><p class="text-sm font-bold">Concession Pickup</p><p id="pickup-summary" class="mt-2 text-sm" style="color:var(--muted)">Suite lane pickup is active.</p></div></div>
+            </section>
+            <section id="tab-home" class="tab-panel active space-y-5">
+                <!-- Match & Weather Hub -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-[2rem] bg-gradient-to-br from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
+                        <div class="flex items-center justify-between opacity-80 text-[10px] font-bold uppercase tracking-widest">
+                            <span>Live Match</span>
+                            <span class="animate-pulse text-rose-400">● Live</span>
+                        </div>
+                        <div class="mt-4">
+                            <p id="match-teams" class="text-xs font-bold opacity-90">Lions vs Tigers</p>
+                            <div class="mt-2 flex items-baseline gap-2">
+                                <h3 id="match-score" class="text-3xl font-black">2 - 1</h3>
+                                <span id="match-time" class="text-sm font-bold opacity-80">72'</span>
+                            </div>
+                        </div>
                     </div>
+                    <div class="rounded-[2rem] bg-white p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                            <span>Weather</span>
+                            <span id="weather-icon">☀️</span>
+                        </div>
+                        <div class="mt-2">
+                            <h3 id="weather-temp" class="text-3xl font-black text-slate-800">24°C</h3>
+                            <p id="weather-cond" class="text-xs font-bold text-slate-500">Clear Sky</p>
+                        </div>
+                    </div>
+                </div>
 
-                    <div class="space-y-2">
-                        <input id="voice-text-input" type="text" placeholder="Ask about routes, food, restrooms, or safety..." class="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800">
-                        <button class="w-full rounded-2xl bg-slate-950 py-3 text-sm font-bold text-white transition hover:bg-slate-800 active:scale-[0.99] dark:bg-sky-600 dark:hover:bg-sky-500" onclick="submitAIQuery(document.getElementById('voice-text-input').value)">
-                            Send to AI Bot
+                <!-- Live Poll Widget -->
+                <div id="fan-poll" class="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="flex items-center justify-between gap-4">
+                        <p class="text-xs font-bold uppercase tracking-[0.28em] text-indigo-600">🗳️ Live Fan Poll</p>
+                        <span class="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-600">Active</span>
+                    </div>
+                    <h3 class="mt-3 text-lg font-black leading-tight">Who will be the Man of the Match?</h3>
+                    <div class="mt-5 space-y-3">
+                        <button onclick="votePoll('player_1')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
+                            <div class="relative z-10 flex justify-between items-center">
+                                <span class="font-bold text-slate-700">Leo "Lion" Messi</span>
+                                <span class="poll-pct text-xs font-black text-indigo-600">42%</span>
+                            </div>
+                            <div class="poll-bar absolute inset-0 bg-indigo-50 origin-left transition-all duration-1000" style="width: 42%"></div>
+                        </button>
+                        <button onclick="votePoll('player_2')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
+                            <div class="relative z-10 flex justify-between items-center">
+                                <span class="font-bold text-slate-700">Tiger Woods</span>
+                                <span class="poll-pct text-xs font-black text-indigo-600">38%</span>
+                            </div>
+                            <div class="poll-bar absolute inset-0 bg-indigo-50 origin-left transition-all duration-1000" style="width: 38%"></div>
+                        </button>
+                        <button onclick="votePoll('other')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
+                            <div class="relative z-10 flex justify-between items-center">
+                                <span class="font-bold text-slate-700">Someone Else</span>
+                                <span class="poll-pct text-xs font-black text-indigo-600">20%</span>
+                            </div>
+                            <div class="poll-bar absolute inset-0 bg-indigo-50 origin-left transition-all duration-1000" style="width: 20%"></div>
                         </button>
                     </div>
                 </div>
-            </div>
 
-            <div id="bounty-area" class="hidden">
-                <h3 class="text-sm font-bold text-amber-500 dark:text-amber-400 uppercase tracking-wider mb-2 px-1">Flow Bounties Active</h3>
-                <div id="bounty-list" class="space-y-2"></div>
-            </div>
-
-            <div id="ai-guide-preview" class="rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 shadow-sm dark:border-sky-900/40 dark:bg-slate-900/70">
-                <div class="flex items-start gap-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-500 text-sm font-black text-white shadow-sm">AI</div>
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-2">
-                            <p class="text-sm font-black text-slate-900 dark:text-white">Live AI Guide</p>
-                            <span id="guide-scenario-pill" class="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">Normal</span>
+                <!-- Crowd Density Gauge -->
+                <div class="rounded-[2rem] bg-slate-900 p-5 text-white shadow-xl overflow-hidden relative">
+                    <div class="relative z-10">
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Crowd Density Indicator</p>
+                        <div class="mt-4 flex items-center justify-between">
+                            <div>
+                                <h3 id="density-label" class="text-2xl font-black">Optimal</h3>
+                                <p id="density-status" class="text-xs text-emerald-400 font-bold uppercase tracking-tighter">Safe & Free Flow</p>
+                            </div>
+                            <div class="relative h-16 w-16">
+                                <svg class="h-full w-full" viewBox="0 0 36 36">
+                                    <path class="stroke-current text-slate-800" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path id="density-circle" class="stroke-current text-emerald-500" stroke-width="3" stroke-dasharray="75, 100" stroke-linecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                </svg>
+                                <div class="absolute inset-0 flex items-center justify-center text-xs font-black"><span id="density-percent">75</span>%</div>
+                            </div>
                         </div>
-                        <p id="guide-preview-chat" class="mt-2 text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-200">Crowd flow looks stable. Ask me for the best gate, shortest line, or help in an emergency.</p>
-                        <p id="guide-preview-reason" class="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Normal operations profile is active, with smooth entry flow and moderate concourse density.</p>
+                    </div>
+                    <!-- Background aura -->
+                    <div id="density-aura" class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/20 blur-3xl rounded-full"></div>
+                </div>
+
+                <div id="live-pass-card" class="rounded-[2rem] p-5 shadow-sm">
+                    <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.28em] text-sky-600">🎫 Live Pass</p><h2 id="live-pass-title" class="mt-2 text-2xl font-black">Your best route right now</h2></div><span id="scenario-pill" class="rounded-full bg-sky-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.3em] text-sky-700">Normal</span></div>
+                    <div class="mt-4 grid grid-cols-2 gap-3"><div class="rounded-[1.5rem] bg-white/80 p-4"><p class="text-xs font-bold uppercase tracking-[0.26em]" style="color:var(--muted)">🚪 Best Gate</p><p id="best-route" class="mt-2 text-2xl font-black">Gate C</p><p id="seat-summary" class="mt-2 text-sm" style="color:var(--muted)">Section 112</p></div><div class="rounded-[1.5rem] bg-white/80 p-4"><p class="text-xs font-bold uppercase tracking-[0.26em]" style="color:var(--muted)">⚡ AI Impact</p><p class="mt-2 text-2xl font-black"><span id="impact-wait">0</span>%</p><p id="impact-copy" class="mt-2 text-sm" style="color:var(--muted)">Average wait-time improvement</p></div></div>
+                    <div class="mt-3 rounded-[1.5rem] bg-white/80 p-4"><p class="text-xs font-bold uppercase tracking-[0.26em]" style="color:var(--muted)">♿ Accessible Route</p><p id="accessible-route" class="mt-2 text-sm leading-6">Use the shortest marked path through Gate C toward Section 112.</p></div>
+                </div>
+                <div id="ai-guide-preview" class="rounded-[2rem] p-5">
+                    <div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.28em] text-sky-600">🤖 Live AI Guide</p><h2 id="guide-title" class="mt-2 text-xl font-black">One-tap guidance</h2></div><span id="ai-provider" class="rounded-full bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">Rules</span></div>
+                    <p id="guide-preview-chat" class="mt-4 text-sm font-semibold leading-6">Crowd flow looks stable. Ask for the best gate, shortest line, or help in an emergency.</p>
+                    <p id="guide-preview-reason" class="mt-2 text-[11px] uppercase tracking-[0.18em]" style="color:var(--muted)">AI guidance will use your saved fan profile.</p>
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                        <button onclick="submitAIQuery('Where is the shortest line right now?')" class="rounded-2xl border border-sky-200 bg-white px-3 py-3 text-left text-xs font-bold text-sky-700">🚪 Shortest line</button>
+                        <button onclick="submitAIQuery('I need wheelchair friendly routing.')" class="rounded-2xl border border-emerald-200 bg-white px-3 py-3 text-left text-xs font-bold text-emerald-700">♿ Accessible route</button>
+                        <button onclick="submitAIQuery('Where should I get food right now?')" class="rounded-2xl border border-amber-200 bg-white px-3 py-3 text-left text-xs font-bold text-amber-700">🍔 Food advice</button>
+                        <button onclick="submitAIQuery('Help, there is a medical emergency near section 112.')" class="rounded-2xl border border-rose-200 bg-white px-3 py-3 text-left text-xs font-bold text-rose-700">🚨 Emergency help</button>
                     </div>
                 </div>
-            </div>
-
-            <div>
-                <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-1">Nearby Services</h3>
-                <div class="space-y-3" id="fan-waits">
-                    <div class="animate-pulse bg-slate-200 dark:bg-slate-800 h-16 rounded-xl w-full"></div>
-                    <div class="animate-pulse bg-slate-200 dark:bg-slate-800 h-16 rounded-xl w-full"></div>
-                </div>
-            </div>
-
-            <div id="map-container" class="rounded-2xl">
-                <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-2">Live Venue Radar</h3>
-                <div class="relative bg-slate-200 dark:bg-slate-900 rounded-2xl h-64 border border-slate-300 dark:border-slate-800 overflow-hidden shadow-inner">
-                    <iframe
-                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3311.23351939109!2d-118.34149022372439!3d33.95340147319409!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80c2b740523e85bb%3A0xe7a5cda11a2f64fa!2sSoFi%20Stadium!5e0!3m2!1sen!2sus!4v1713200000000!5m2!1sen!2sus"
-                        width="100%" height="100%" style="border:0; filter: contrast(1.1) saturate(1.2);" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-                    <div class="absolute inset-0 pointer-events-none p-4">
-                        <div id="map-hotspot" class="absolute w-6 h-6 bg-blue-500/45 rounded-full top-[36%] left-[48%] animate-ping blur-sm"></div>
+                <div id="bounty-area" class="hidden rounded-[2rem] border border-amber-200 bg-amber-50 p-5"><p class="text-xs font-bold uppercase tracking-[0.28em] text-amber-700">🏆 Flow Bounties</p><div id="bounty-list" class="mt-3 space-y-3"></div></div>
+            </section>
+            <section id="tab-services" class="tab-panel space-y-5">
+                <div class="rounded-[2rem] border border-slate-200 p-5">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">🍿 Nearby Services</p>
+                            <h2 class="mt-2 text-xl font-black">Live queue board</h2>
+                        </div>
+                        <p class="rounded-full bg-emerald-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.28em] text-emerald-700">Offline Ready</p>
                     </div>
+                    <div id="fan-waits" class="mt-4 space-y-3"></div>
                 </div>
-            </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="submitAIQuery('Where should I get food right now?'); switchTab('services')" class="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-left">
+                        <p class="text-xs font-bold uppercase tracking-[0.24em] text-amber-700">🍔 Food Tip</p>
+                        <p class="mt-2 text-sm font-semibold">Ask AI for the fastest concession route.</p>
+                    </button>
+                    <button onclick="submitAIQuery('Where is the nearest restroom with a shorter line?'); switchTab('services')" class="rounded-[1.5rem] border border-sky-200 bg-sky-50 p-4 text-left">
+                        <p class="text-xs font-bold uppercase tracking-[0.24em] text-sky-700">🚻 Restroom Tip</p>
+                        <p class="mt-2 text-sm font-semibold">Get quick restroom guidance from the bot.</p>
+                    </button>
+                </div>
+            </section>
+            <!-- Tickets Tab -->
+            <section id="tab-tickets" class="tab-panel space-y-5">
+                <div class="rounded-[2rem] border border-slate-200 p-5 bg-white shadow-sm">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">🎟️ Match Tickets</p>
+                            <h2 class="mt-2 text-2xl font-black">Select Your Seat</h2>
+                        </div>
+                        <span class="rounded-full bg-emerald-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.28em] text-emerald-700">Available</span>
+                    </div>
+                    
+                    <!-- SVG Stadium Map -->
+                    <div class="mt-6 flex justify-center">
+                        <svg width="340" height="340" viewBox="0 0 320 320" class="filter drop-shadow-2xl">
+                            <!-- Background field (enlarged) -->
+                            <rect x="70" y="70" width="180" height="180" rx="15" fill="#15803d" />
+                            <rect x="75" y="75" width="170" height="170" rx="10" fill="none" stroke="white" stroke-width="2" opacity="0.4" />
+                            <line x1="70" y1="160" x2="250" y2="160" stroke="white" stroke-width="2" opacity="0.4" />
+                            <circle cx="160" cy="160" r="25" fill="none" stroke="white" stroke-width="2" opacity="0.4" />
+                            
+                            <!-- North Stand -->
+                            <g class="cursor-pointer group" onclick="selectSection('North Stand', 85)">
+                                <path d="M60 60 L260 60 L280 30 L40 30 Z" fill="#cbd5e1" class="hover:fill-sky-400 transition-all duration-300" />
+                                <text x="160" y="24" text-anchor="middle" font-size="10" font-weight="900" fill="#475569" class="uppercase tracking-widest">North Stand</text>
+                            </g>
+                            
+                            <!-- South Stand -->
+                            <g class="cursor-pointer group" onclick="selectSection('South Stand', 75)">
+                                <path d="M60 260 L260 260 L280 290 L40 290 Z" fill="#cbd5e1" class="hover:fill-sky-400 transition-all duration-300" />
+                                <text x="160" y="306" text-anchor="middle" font-size="10" font-weight="900" fill="#475569" class="uppercase tracking-widest">South Stand</text>
+                            </g>
+                            
+                            <!-- East Stand (VIP) -->
+                            <g class="cursor-pointer group" onclick="selectSection('East Stand-VIP', 250)">
+                                <path d="M260 65 L260 255 L295 275 L295 45 Z" fill="#fcd34d" class="hover:fill-amber-400 transition-all duration-300" />
+                                <text x="310" y="160" text-anchor="middle" font-size="10" font-weight="900" fill="#b45309" transform="rotate(90, 310, 160)" class="uppercase tracking-widest">East VIP</text>
+                            </g>
+                            
+                            <!-- West Stand -->
+                            <g class="cursor-pointer group" onclick="selectSection('West Stand', 65)">
+                                <path d="M60 65 L60 255 L25 275 L25 45 Z" fill="#cbd5e1" class="hover:fill-sky-400 transition-all duration-300" />
+                                <text x="10" y="160" text-anchor="middle" font-size="10" font-weight="900" fill="#475569" transform="rotate(-90, 10, 160)" class="uppercase tracking-widest">West Stand</text>
+                            </g>
+                        </svg>
+                    </div>
+                    
+                    <div id="selection-details" class="mt-6 rounded-3xl bg-slate-950 p-6 hidden shadow-2xl relative overflow-hidden">
+                        <!-- Subtle glow backgrounds -->
+                        <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-sky-500/20 blur-3xl"></div>
+                        <div class="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-indigo-500/20 blur-3xl"></div>
+                        
+                        <div class="relative z-10">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-sky-400">Selected Zone</p>
+                                    <p id="selected-name" class="mt-1 text-2xl font-black text-white">North Stand</p>
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <span class="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pricing Category: <span class="text-slate-200">Standard</span></p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p id="selected-price" class="text-3xl font-black text-white">$250</p>
+                                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">PER SEAT</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6 border-t border-white/10 pt-4">
+                                <button onclick="confirmBooking()" class="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-sky-500/25 active:scale-95 transition-transform">
+                                    Book This Section
+                                </button>
+                                <p class="mt-3 text-center text-[10px] font-medium text-slate-500">Live seat availability secured for 5:00 minutes</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="booking-prompt" class="mt-6 text-center text-sm font-semibold text-slate-400">Tap a section on the map to view pricing</p>
+                </div>
+            </section>
+            <section id="tab-profile" class="tab-panel space-y-5">
+                <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">👤 Profile</p><h2 class="mt-2 text-2xl font-black">Personalize your experience</h2></div><span class="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.26em] text-slate-500">Saved Live</span></div><div class="mt-4 grid gap-3 text-sm"><input id="profile-name" class="w-full rounded-2xl border border-slate-200 px-4 py-3" value="Guest 112"><input id="profile-seat-section" class="w-full rounded-2xl border border-slate-200 px-4 py-3" value="112"><select id="profile-preferred-gate" class="w-full rounded-2xl border border-slate-200 px-4 py-3"><option value="gate_a">Gate A</option><option value="gate_b">Gate B</option><option value="gate_c" selected>Gate C</option></select><select id="profile-food-preference" class="w-full rounded-2xl border border-slate-200 px-4 py-3"><option value="vegetarian" selected>Vegetarian</option><option value="classic">Classic Stadium Food</option><option value="vegan">Vegan</option><option value="halal">Halal</option></select><select id="profile-accessibility-need" class="w-full rounded-2xl border border-slate-200 px-4 py-3"><option value="none" selected>None</option><option value="wheelchair">Wheelchair</option><option value="low_vision">Low vision</option><option value="hearing_support">Hearing support</option></select><select id="profile-ticket-type" class="w-full rounded-2xl border border-slate-200 px-4 py-3"><option value="vip" selected>VIP</option><option value="general">General</option></select></div><div class="mt-5 rounded-[1.8rem] bg-gradient-to-r from-emerald-100 via-sky-100 to-white p-4"><div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.24em] text-slate-600">🌗 Theme</p><p class="mt-2 text-sm" style="color:var(--muted)">Switch between bright demo mode and darker arena mode.</p></div><button id="theme-toggle" onclick="toggleTheme()" class="rounded-full bg-slate-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-white">Arena Mode</button></div></div><button onclick="saveProfile()" class="mt-5 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Save Personalized Experience</button></div>
+            </section>
         </main>
-
-        <nav class="absolute bottom-0 w-full border-t border-sky-200/70 bg-gradient-to-r from-white via-sky-50 to-indigo-50 px-4 py-3 flex justify-around z-50 shadow-[0_-12px_40px_rgba(14,116,144,0.12)] dark:border-slate-800 dark:bg-[linear-gradient(90deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94),rgba(49,46,129,0.92))]">
-            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-sky-600 hover:bg-sky-100/80 hover:text-sky-700 transition active:scale-95 dark:text-sky-300 dark:hover:bg-sky-500/10 dark:hover:text-sky-200" onclick="activateMap()">
-                <span class="text-lg leading-none">🗺️</span>
-                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Radar</span>
-                <span class="text-sm font-black">MAP</span>
-            </button>
-            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-fuchsia-600 hover:bg-fuchsia-100/80 hover:text-fuchsia-700 transition active:scale-95 dark:text-fuchsia-300 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-200" onclick="document.getElementById('ticket-modal').classList.remove('hidden')">
-                <span class="text-lg leading-none">🎟️</span>
-                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Access</span>
-                <span class="text-sm font-black">TICKET</span>
-            </button>
-            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-amber-600 hover:bg-amber-100/80 hover:text-amber-700 transition active:scale-95 dark:text-amber-300 dark:hover:bg-amber-500/10 dark:hover:text-amber-200" onclick="document.documentElement.classList.toggle('dark')">
-                <span class="text-lg leading-none">🌗</span>
-                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Mode</span>
-                <span class="text-sm font-black">THEME</span>
-            </button>
-            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-emerald-600 hover:bg-emerald-100/80 hover:text-emerald-700 transition active:scale-95 dark:text-emerald-300 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-200" onclick="document.getElementById('order-sheet').classList.remove('hidden')">
-                <span class="text-lg leading-none">🍔</span>
-                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Food</span>
-                <span class="text-sm font-black">ORDER</span>
-            </button>
-            <button class="flex min-w-[4.25rem] flex-col items-center gap-1 rounded-2xl px-3 py-2 text-rose-600 hover:bg-rose-100/80 hover:text-rose-700 transition active:scale-95 dark:text-rose-300 dark:hover:bg-rose-500/10 dark:hover:text-rose-200" onclick="openRewards()">
-                <span class="text-lg leading-none">🏆</span>
-                <span class="text-[10px] uppercase tracking-[0.28em] opacity-70">Rewards</span>
-                <span class="text-sm font-black">POINTS</span>
-            </button>
+        <nav class="glass fixed bottom-0 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 items-center justify-around border-t border-slate-200 px-4 py-3">
+            <button data-tab-btn="home" onclick="switchTab('home')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-sky-700 focus:outline-none"><span class="text-lg leading-none">🏟️</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Home</span></button>
+            <button data-tab-btn="map" onclick="switchTab('map')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">🗺️</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Map</span></button>
+            <button data-tab-btn="services" onclick="switchTab('services')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">🍿</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Svc</span></button>
+            <button data-tab-btn="tickets" onclick="switchTab('tickets')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">🎟️</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Tkt</span></button>
+            <button onclick="toggleOrderSheet(true)" class="flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">🍔</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Food</span></button>
+            <button data-tab-btn="profile" onclick="switchTab('profile')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">👤</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">User</span></button>
         </nav>
-
-        <button id="ai-close-chip" onclick="closeAIModal()" class="hidden absolute right-4 top-[5.5rem] z-[125] rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-300">
-            Hide Bot
+        <!-- Floating SOS Button -->
+        <button onclick="triggerSOS()" class="fixed bottom-24 right-6 z-[100] w-14 h-14 rounded-full bg-rose-600 shadow-2xl shadow-rose-600/40 flex items-center justify-center border-4 border-white active:scale-90 transition-all group">
+            <span class="text-white text-xl font-black group-hover:scale-110 transition-transform">SOS</span>
         </button>
-
-        <button id="ai-launcher" onclick="openAIModal()" class="absolute bottom-24 right-4 z-[126] flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 text-lg font-black text-white shadow-[0_12px_36px_rgba(59,130,246,0.45)] transition hover:scale-105 active:scale-95">
-            AI
-        </button>
+        <div class="fixed bottom-24 left-1/2 z-[90] w-full max-w-md -translate-x-1/2 px-4">
+            <div id="ai-chatbox" class="chat-shell hidden overflow-hidden rounded-[1.8rem] border border-sky-200 bg-white">
+                <div id="chat-header" class="flex items-center justify-between gap-4 px-4 py-3 text-white"><div><p class="text-sm font-black">🤖 Stadium AI Bot</p><p class="text-[10px] uppercase tracking-[0.24em] text-sky-100">Quick help in the corner</p></div><button onclick="toggleChat(false)" class="rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]">Hide</button></div>
+                <div id="ai-conversation" class="max-h-72 space-y-3 overflow-y-auto bg-slate-50 p-4"><div class="max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white"><p>Hello. I am syncing with the live stadium state now.</p><p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-sky-100">Your saved profile shapes my advice.</p></div></div>
+                <div class="space-y-3 bg-white p-4"><div class="grid grid-cols-2 gap-2"><button onclick="submitAIQuery('Where is the shortest line right now?')" class="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-3 text-left text-xs font-bold text-sky-700">🚪 Shortest line</button><button onclick="submitAIQuery('Help, there is an emergency near section 112.')" class="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-left text-xs font-bold text-rose-700">🚨 Emergency help</button></div><div class="flex gap-2"><input id="voice-text-input" class="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="Ask about gates, food, queues, safety..."><button onclick="submitAIQuery(document.getElementById('voice-text-input').value)" class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Send</button></div></div>
+            </div>
+            <div class="mt-3 flex justify-end"><button id="ai-launcher" onclick="toggleChat(true)" class="rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 px-5 py-4 text-sm font-black text-white shadow-[0_12px_36px_rgba(59,130,246,0.45)]">🤖 AI</button></div>
+        </div>
     </div>
-
     <script>
-        let cartTotal = 0;
-        let totalPoints = 240;
-        let aiPinnedUntil = 0;
-        let activeDiscount = 0;
-        let ws = null;
-        let reconnectTimer = null;
-        let reconnecting = false;
-        let isDraggingBot = false;
-        let botDragOffsetX = 0;
-        let botDragOffsetY = 0;
-
-        function titleize(value) {
-            return value.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+        let totalPoints = 240, cartTotal = 0, activeDiscount = 0, ws = null, reconnectTimer = null, reconnecting = false, isDarkMode = false;
+        function titleize(v){return v.split('_').map(p=>p.charAt(0).toUpperCase()+p.slice(1)).join(' ')}
+        function serviceEmoji(k){if(k.includes('food'))return'🍔'; if(k.includes('restroom'))return'🚻'; if(k.includes('merch'))return'🧢'; return'🛂'}
+        function switchTab(tab){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('bg-sky-100','text-sky-700');b.classList.add('text-slate-500')});document.getElementById(`tab-${tab}`).classList.add('active');const btn=document.querySelector(`[data-tab-btn="${tab}"]`);btn.classList.add('bg-sky-100','text-sky-700');btn.classList.remove('text-slate-500')}
+        function toggleChat(show){document.getElementById('ai-chatbox').classList.toggle('hidden',!show);document.getElementById('ai-launcher').classList.toggle('hidden',show)}
+        function toggleTicket(show){document.getElementById('ticket-modal').classList.toggle('hidden',!show)}
+        function toggleOrderSheet(show){document.getElementById('order-sheet').classList.toggle('hidden',!show);updatePointsUI();updateCheckoutTotal()}
+        function toggleTheme(){isDarkMode=!isDarkMode;document.body.classList.toggle('dark-mode',isDarkMode);document.getElementById('theme-toggle').innerText=isDarkMode?'Day Mode':'Arena Mode'}
+        function profilePayload(){return{name:document.getElementById('profile-name').value,seat_section:document.getElementById('profile-seat-section').value,preferred_gate:document.getElementById('profile-preferred-gate').value,food_preference:document.getElementById('profile-food-preference').value,accessibility_need:document.getElementById('profile-accessibility-need').value,ticket_type:document.getElementById('profile-ticket-type').value}}
+        function navigateToService(key){
+            let poiType = 'food';
+            if(key.includes('restroom')) poiType = 'washroom';
+            if(key.includes('security')) poiType = 'exit';
+            
+            // Switch Tab
+            switchTab('map');
+            
+            // Ensure indicators are on
+            const markers = document.getElementById(`${poiType}-markers`);
+            if(markers) markers.classList.remove('hidden');
+            
+            // Show smart path
+            const path = document.getElementById('smart-path-overlay');
+            if(path) path.classList.remove('hidden');
+            
+            // Feedback
+            document.getElementById('map-service-note').innerText = `Navigating to ${titleize(key)}...`;
         }
-
-        function getServiceMeta(key) {
-            if (key.includes('food')) {
-                return {
-                    emoji: '🍟',
-                    bg: 'from-amber-100 via-orange-50 to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900',
-                    border: 'border-amber-200/80 dark:border-amber-700/30',
-                    accent: 'text-amber-600 dark:text-amber-300'
-                };
-            }
-            if (key.includes('restroom')) {
-                return {
-                    emoji: '🚻',
-                    bg: 'from-cyan-100 via-sky-50 to-white dark:from-cyan-950/40 dark:via-slate-900 dark:to-slate-900',
-                    border: 'border-cyan-200/80 dark:border-cyan-700/30',
-                    accent: 'text-cyan-600 dark:text-cyan-300'
-                };
-            }
-            if (key.includes('merch')) {
-                return {
-                    emoji: '🧢',
-                    bg: 'from-fuchsia-100 via-pink-50 to-white dark:from-fuchsia-950/40 dark:via-slate-900 dark:to-slate-900',
-                    border: 'border-fuchsia-200/80 dark:border-fuchsia-700/30',
-                    accent: 'text-fuchsia-600 dark:text-fuchsia-300'
-                };
-            }
-            return {
-                emoji: '📍',
-                bg: 'from-slate-100 via-slate-50 to-white dark:from-slate-800 dark:via-slate-900 dark:to-slate-900',
-                border: 'border-slate-200/80 dark:border-slate-700/40',
-                accent: 'text-slate-600 dark:text-slate-300'
-            };
+        function renderQueues(waitTimes){const wrap=document.getElementById('fan-waits');wrap.innerHTML='';Object.entries(waitTimes).forEach(([k,v])=>{const row=document.createElement('button');row.onclick=()=>navigateToService(k);row.className='w-full text-left rounded-[1.5rem] bg-slate-50 p-4 active:scale-95 transition-all hover:bg-slate-100 hover:shadow-sm';row.innerHTML=`<div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.26em]" style="color:var(--muted)">${serviceEmoji(k)} ${titleize(k)}</p><p class="mt-2 text-sm" style="color:var(--muted)">${v>12?'High traffic':'Comfortable flow'}</p></div><div class="flex items-center gap-3"><p class="text-2xl font-black ${v>12?'text-rose-600':'text-emerald-600'}">${v}<span class="text-sm text-slate-400">m</span></p><div class="rounded-full bg-slate-200 p-2"><span class="block w-4 h-4 text-center leading-none text-[10px] grayscale">📍</span></div></div></div>`;wrap.appendChild(row)})}
+        function renderBounties(bounties){const area=document.getElementById('bounty-area'),list=document.getElementById('bounty-list');if(!bounties||bounties.length===0){area.classList.add('hidden');list.innerHTML='';return}area.classList.remove('hidden');list.innerHTML='';bounties.forEach(b=>{const card=document.createElement('button');card.className='w-full rounded-[1.4rem] border border-amber-200 bg-white px-4 py-3 text-left';card.innerHTML=`<div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.26em] text-amber-700">🏆 Load balancing bounty</p><p class="mt-2 text-sm" style="color:var(--muted)">${b.reason}</p></div><span class="rounded-full bg-amber-500 px-3 py-2 text-sm font-black text-white">${b.points} PTR</span></div>`;card.onclick=()=>{totalPoints+=Number(String(b.points).replace(/[^0-9]/g,''))||0;updatePointsUI()};list.appendChild(card)})}
+        function updatePointsUI(){document.getElementById('flow-points').innerText=totalPoints;document.getElementById('order-points-balance').innerText=totalPoints;document.getElementById('ticket-points-badge').innerText=totalPoints;document.getElementById('reward-discount-small').disabled=totalPoints<120||activeDiscount>=2;document.getElementById('reward-discount-large').disabled=totalPoints<260||activeDiscount>=5}
+        function updateCheckoutTotal(){document.getElementById('checkout-btn').innerText=`Checkout | $${Math.max(cartTotal-activeDiscount,0).toFixed(2)}`}
+        function addToCart(price){cartTotal+=price;updateCheckoutTotal()}
+        function redeemReward(key){if(key==='discount_small'){if(totalPoints<120||activeDiscount>=2)return;totalPoints-=120;activeDiscount+=2;document.getElementById('reward-status').innerText='Applied $2 off to your concessions order.'}if(key==='discount_large'){if(totalPoints<260||activeDiscount>=5)return;totalPoints-=260;activeDiscount+=5;document.getElementById('reward-status').innerText='Applied $5 off to your concessions order.'}updatePointsUI();updateCheckoutTotal()}
+        function submitOrder(){
+            if(cartTotal===0)return;
+            const total = Math.max(cartTotal - activeDiscount, 0).toFixed(2);
+            
+            // Show tracking, hide checkout
+            document.getElementById('checkout-btn').classList.add('hidden');
+            document.getElementById('reward-status').parentElement.classList.add('hidden');
+            document.getElementById('order-tracking').classList.remove('hidden');
+            
+            simulateOrderProgress();
+            
+            // Reset totals for next time (but logic will wait for delivery)
+            cartTotal=0; activeDiscount=0;
         }
-
-        function showToast(title, message) {
-            const toast = document.createElement('div');
-            toast.className = 'fixed top-16 left-1/2 transform -translate-x-1/2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-[0_10px_40px_rgba(0,0,0,0.15)] p-4 rounded-2xl z-[100] transition-all duration-300 ease-out -translate-y-[150%] opacity-0 w-[90%] max-w-sm';
-            toast.innerHTML = `<h4 class="font-bold text-sm text-slate-800 dark:text-white">${title}</h4><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">${message}</p>`;
-            document.body.appendChild(toast);
-            void toast.offsetWidth;
-            toast.classList.remove('-translate-y-[150%]', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
+        function simulateOrderProgress(){
+            const status = document.getElementById('tracking-status');
+            const progress = document.getElementById('tracking-progress');
+            const msg = document.getElementById('tracking-msg');
+            
             setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('-translate-y-[150%]', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
+                status.innerText = 'Cooking';
+                progress.style.width = '45%';
+                msg.innerText = 'Chef is preparing your order with fresh ingredients.';
             }, 3000);
+            
+            setTimeout(() => {
+                status.innerText = 'Out for Delivery';
+                status.className = 'rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-700';
+                progress.style.width = '75%';
+                msg.innerText = 'A stadium runner is bringing your food to Section 112.';
+            }, 7000);
+            
+            setTimeout(() => {
+                status.innerText = 'Delivered';
+                progress.style.width = '100%';
+                msg.innerText = 'Enjoy! Your runner has arrived at your seat.';
+                
+                // Final reset after delay
+                setTimeout(() => {
+                    toggleOrderSheet(false);
+                    // Reset UI for next order
+                    document.getElementById('checkout-btn').classList.remove('hidden');
+                    document.getElementById('reward-status').parentElement.classList.remove('hidden');
+                    document.getElementById('order-tracking').classList.add('hidden');
+                    status.innerText = 'Preparing';
+                    status.className = 'rounded-full bg-sky-100 px-3 py-1 text-[10px] font-bold text-sky-700';
+                    progress.style.width = '15%';
+                }, 3000);
+            }, 12000);
         }
-
-        function updatePointsUI() {
-            document.getElementById('flow-points').innerText = totalPoints;
-            const orderPointsBalance = document.getElementById('order-points-balance');
-            if (orderPointsBalance) {
-                orderPointsBalance.innerText = totalPoints;
-            }
-
-            const smallRewardBtn = document.getElementById('reward-discount-small');
-            const largeRewardBtn = document.getElementById('reward-discount-large');
-            if (smallRewardBtn) {
-                smallRewardBtn.disabled = totalPoints < 120 || activeDiscount >= 2;
-            }
-            if (largeRewardBtn) {
-                largeRewardBtn.disabled = totalPoints < 260 || activeDiscount >= 5;
-            }
+        function sendReaction(emoji){
+            const btn = event.currentTarget;
+            btn.classList.add('scale-125');
+            setTimeout(() => btn.classList.remove('scale-125'), 200);
+            
+            // Floating emoji animation
+            const floater = document.createElement('div');
+            floater.innerText = emoji;
+            floater.className = 'fixed bottom-40 right-10 z-[120] text-4xl pointer-events-none float-react';
+            document.body.appendChild(floater);
+            setTimeout(() => floater.remove(), 1500);
         }
-
-        function updateCheckoutTotal() {
-            const finalTotal = Math.max(cartTotal - activeDiscount, 0);
-            document.getElementById('checkout-btn').innerText = `Checkout | $${finalTotal.toFixed(2)}`;
-        }
-
-        function openRewards() {
-            document.getElementById('order-sheet').classList.remove('hidden');
-            document.getElementById('reward-status').innerText = activeDiscount > 0
-                ? `Reward active: $${activeDiscount.toFixed(2)} off your current order.`
-                : 'Redeem points to lower your checkout total instantly.';
-            updatePointsUI();
-            updateCheckoutTotal();
-        }
-
-        function claimPoints(points) {
-            totalPoints += points;
-            updatePointsUI();
-            showToast('Points Deposited', `You earned +${points} Flow Points.`);
-        }
-
-        function redeemReward(rewardKey) {
-            if (rewardKey === 'discount_small') {
-                if (totalPoints < 120 || activeDiscount >= 2) return;
-                totalPoints -= 120;
-                activeDiscount += 2;
-                document.getElementById('reward-status').innerText = 'Applied $2 off to your concessions order.';
-                showToast('Reward Redeemed', '$2 discount applied to your food order.');
-            }
-
-            if (rewardKey === 'discount_large') {
-                if (totalPoints < 260 || activeDiscount >= 5) return;
-                totalPoints -= 260;
-                activeDiscount += 5;
-                document.getElementById('reward-status').innerText = 'Applied $5 off to your concessions order.';
-                showToast('Reward Redeemed', '$5 discount applied to your food order.');
-            }
-
-            updatePointsUI();
-            updateCheckoutTotal();
-        }
-
-        function addToCart(price) {
-            cartTotal += price;
-            updateCheckoutTotal();
-            showToast('Cart Updated', `Item added. Total: $${cartTotal.toFixed(2)}`);
-        }
-
-        function submitOrder() {
-            if (cartTotal === 0) {
-                showToast('Cart Empty', 'Add something first to place an order.');
-                return;
-            }
-            document.getElementById('order-sheet').classList.add('hidden');
-            const savedAmount = activeDiscount > 0 ? ` You saved $${activeDiscount.toFixed(2)} with Flow Rewards.` : '';
-            showToast('Order Placed', `A runner will deliver it to Section 112 shortly.${savedAmount}`);
-            cartTotal = 0;
-            activeDiscount = 0;
-            document.getElementById('reward-status').innerText = 'Redeem points to lower your checkout total instantly.';
-            updatePointsUI();
-            updateCheckoutTotal();
-        }
-
-        function activateMap() {
-            const mapPanel = document.getElementById('map-container');
-            mapPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            mapPanel.classList.add('ring-4', 'ring-blue-500', 'ring-offset-2', 'dark:ring-offset-slate-950');
-            setTimeout(() => mapPanel.classList.remove('ring-4', 'ring-blue-500', 'ring-offset-2', 'dark:ring-offset-slate-950'), 1200);
-        }
-
-        function openAIModal() {
-            document.getElementById('ai-module').classList.remove('hidden');
-            document.getElementById('ai-close-chip').classList.remove('hidden');
-            document.getElementById('ai-launcher').classList.add('hidden');
-            document.getElementById('voice-text-input').focus();
-        }
-
-        function closeAIModal() {
-            document.getElementById('ai-module').classList.add('hidden');
-            document.getElementById('ai-close-chip').classList.add('hidden');
-            document.getElementById('ai-launcher').classList.remove('hidden');
-        }
-
-        function appendConversationBubble(content, tone = 'assistant', meta = '') {
-            const conversation = document.getElementById('ai-conversation');
-            const wrapper = document.createElement('div');
-            wrapper.className = tone === 'user' ? 'flex justify-end' : 'flex justify-start';
-
-            const bubble = document.createElement('div');
-            bubble.className = tone === 'user'
-                ? 'max-w-[85%] rounded-2xl rounded-tr-md bg-slate-900 px-3 py-2 text-sm text-white shadow-sm dark:bg-slate-700'
-                : 'max-w-[85%] rounded-2xl rounded-tl-md bg-sky-500 px-3 py-2 text-sm text-white shadow-sm';
-            bubble.innerHTML = `<p>${content}</p>${meta ? `<p class="mt-2 text-[10px] uppercase tracking-[0.18em] ${tone === 'user' ? 'text-slate-300' : 'text-sky-100/80'}">${meta}</p>` : ''}`;
-
-            wrapper.appendChild(bubble);
-            conversation.appendChild(wrapper);
-            conversation.scrollTop = conversation.scrollHeight;
-            return bubble;
-        }
-
-        function updateGuidePreview(message, reasoning, scenario) {
-            if (message) {
-                document.getElementById('guide-preview-chat').innerText = message;
-            }
-            if (reasoning) {
-                document.getElementById('guide-preview-reason').innerText = reasoning;
-            }
-            if (scenario) {
-                document.getElementById('guide-scenario-pill').innerText = titleize(scenario);
-            }
-        }
-
-        function keepBotInBounds() {
-            const bot = document.getElementById('ai-module');
-            const container = bot.parentElement.getBoundingClientRect();
-            const rect = bot.getBoundingClientRect();
-            const minLeft = 8;
-            const maxLeft = Math.max(8, container.width - rect.width - 8);
-            const minTop = 72;
-            const maxTop = Math.max(72, container.height - rect.height - 90);
-            const currentLeft = rect.left - container.left;
-            const currentTop = rect.top - container.top;
-            bot.style.left = `${Math.min(Math.max(currentLeft, minLeft), maxLeft)}px`;
-            bot.style.top = `${Math.min(Math.max(currentTop, minTop), maxTop)}px`;
-            bot.style.right = 'auto';
-        }
-
-        function startBotDrag(event) {
-            const bot = document.getElementById('ai-module');
-            const pointer = event.touches ? event.touches[0] : event;
-            const rect = bot.getBoundingClientRect();
-            const container = bot.parentElement.getBoundingClientRect();
-            isDraggingBot = true;
-            bot.classList.add('dragging');
-            bot.style.left = `${rect.left - container.left}px`;
-            bot.style.top = `${rect.top - container.top}px`;
-            bot.style.right = 'auto';
-            botDragOffsetX = pointer.clientX - rect.left;
-            botDragOffsetY = pointer.clientY - rect.top;
-        }
-
-        function moveBot(event) {
-            if (!isDraggingBot) return;
-            const bot = document.getElementById('ai-module');
-            const pointer = event.touches ? event.touches[0] : event;
-            const container = bot.parentElement.getBoundingClientRect();
-            bot.style.left = `${pointer.clientX - container.left - botDragOffsetX}px`;
-            bot.style.top = `${pointer.clientY - container.top - botDragOffsetY}px`;
-            keepBotInBounds();
-        }
-
-        function stopBotDrag() {
-            if (!isDraggingBot) return;
-            isDraggingBot = false;
-            document.getElementById('ai-module').classList.remove('dragging');
-        }
-
-        async function submitAIQuery(query) {
-            const trimmed = (query || '').trim();
-            if (!trimmed) return;
-
-            openAIModal();
-            document.getElementById('voice-text-input').value = '';
-
-            const module = document.getElementById('ai-module');
-            const icon = document.getElementById('ai-icon');
-            module.classList.add('ring-4', 'ring-blue-400', 'scale-[1.03]');
-            icon.classList.add('animate-spin');
-            aiPinnedUntil = Date.now() + 10000;
-            appendConversationBubble(trimmed, 'user', 'Fan Query');
-            const pendingBubble = appendConversationBubble('Analyzing the live stadium state...', 'assistant', 'Processing');
-            document.getElementById('ai-reason').innerText = 'Actively processing live telemetry and route logic.';
-
-            try {
-                const response = await fetch('/api/v1/ask_ai', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: trimmed })
-                });
-                const result = await response.json();
-                const ai = result.response;
-                pendingBubble.innerHTML = `<p>${ai.message}</p><p class="mt-2 text-[10px] uppercase tracking-[0.18em] text-sky-100/80">${ai.reasoning}</p>`;
-                document.getElementById('ai-reason').innerText = ai.reasoning;
-                document.getElementById('scenario-pill').innerText = titleize(result.scenario);
-                updateGuidePreview(ai.message, ai.reasoning, result.scenario);
-
-                if (ai.severity === 'critical') {
-                    document.getElementById('ai-handle').classList.remove('from-sky-500', 'to-indigo-600');
-                    document.getElementById('ai-handle').classList.add('from-red-600', 'to-red-900');
-                    showToast('Critical Alert', 'Staff escalation triggered from your report.');
-                } else {
-                    document.getElementById('ai-handle').classList.remove('from-red-600', 'to-red-900');
-                    document.getElementById('ai-handle').classList.add('from-sky-500', 'to-indigo-600');
-                    showToast('AI Response Ready', 'Live backend routing advice generated successfully.');
-                }
-            } catch (err) {
-                console.error('Failed to query backend AI', err);
-                pendingBubble.innerHTML = '<p>I could not reach the AI service right now. Please try again in a moment.</p><p class="mt-2 text-[10px] uppercase tracking-[0.18em] text-sky-100/80">Backend request failed</p>';
-                document.getElementById('ai-reason').innerText = 'Backend request failed. Falling back to live telemetry only.';
-                showToast('AI Unavailable', 'Could not reach the backend assistant.');
-            } finally {
-                module.classList.remove('ring-4', 'ring-blue-400', 'scale-[1.03]');
-                icon.classList.remove('animate-spin');
-            }
-        }
-
-        function renderTelemetry(data) {
-            document.getElementById('scenario-pill').innerText = titleize(data.scenario || 'normal');
-            document.getElementById('guide-scenario-pill').innerText = titleize(data.scenario || 'normal');
-            const aiLocked = Date.now() < aiPinnedUntil;
-
-            if (data.emergency_override) {
-                document.getElementById('emergency-overlay').classList.remove('hidden');
-                document.getElementById('ai-chat').innerText = '"Follow the red emergency screens immediately. Do not push. Proceed to marked exits."';
-                updateGuidePreview(
-                    'Follow the red emergency screens immediately. Do not push. Proceed to marked exits.',
-                    'Manual evacuation override was triggered from the Command Center.',
-                    data.scenario || 'normal'
-                );
-                document.getElementById('ai-handle').classList.remove('from-sky-500', 'to-indigo-600');
-                document.getElementById('ai-handle').classList.add('from-red-600', 'to-red-900');
-            } else {
-                document.getElementById('emergency-overlay').classList.add('hidden');
-                if (!aiLocked && !document.getElementById('ai-reason').innerText.includes('Actively processing')) {
-                    const firstAlert = data.alerts[0];
-                    document.getElementById('ai-reason').innerText = firstAlert ? firstAlert.reasoning : 'Analyzing crowd behavior to suggest optimal pathways.';
-                    if (data.scenario === 'peak_rush') {
-                        document.getElementById('ai-chat').innerText = '"Peak rush is active. Ask me for the best gate or shortest line."';
-                        updateGuidePreview(
-                            'Peak rush is active. Ask me for the best gate or shortest line.',
-                            firstAlert ? firstAlert.reasoning : 'Peak rush scenario is active across the venue.',
-                            data.scenario
-                        );
-                    } else {
-                        document.getElementById('ai-chat').innerText = '"Crowd flow looks stable. Ask me for the best gate, shortest line, or help in an emergency."';
-                        updateGuidePreview(
-                            'Crowd flow looks stable. Ask me for the best gate, shortest line, or help in an emergency.',
-                            firstAlert ? firstAlert.reasoning : 'Normal operations profile is active, with smooth entry flow and moderate concourse density.',
-                            data.scenario || 'normal'
-                        );
-                    }
-                }
-                document.getElementById('ai-handle').classList.remove('from-red-600', 'to-red-900');
-                document.getElementById('ai-handle').classList.add('from-sky-500', 'to-indigo-600');
-            }
-
-            let waitHtml = '';
-            for (const [key, val] of Object.entries(data.wait_times_minutes)) {
-                const isHigh = val > 15;
-                const meta = getServiceMeta(key);
-                waitHtml += `
-                    <div class="bg-gradient-to-r ${meta.bg} border ${meta.border} p-4 rounded-3xl flex justify-between items-center shadow-sm">
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 text-2xl shadow-sm dark:bg-slate-800/80">
-                                ${meta.emoji}
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-sm ${meta.accent}">${titleize(key)}</h4>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">${isHigh ? 'High traffic' : 'Smooth flow'}</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <span class="font-mono text-xl font-bold ${isHigh ? 'text-red-500' : 'text-emerald-500'}">${val}</span>
-                            <span class="text-xs font-bold text-slate-400 uppercase">min</span>
-                        </div>
-                    </div>
-                `;
-            }
-            document.getElementById('fan-waits').innerHTML = waitHtml;
-
-            if (data.gamification && data.gamification.bounties.length > 0) {
-                document.getElementById('bounty-area').classList.remove('hidden');
-                let bountyHtml = '';
-                data.gamification.bounties.forEach(b => {
-                    const numericPoints = Number(String(b.points).replace(/[^0-9]/g, '')) || 0;
-                    bountyHtml += `
-                        <div class="bg-gradient-to-r from-amber-500/10 to-transparent border border-amber-500/30 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-amber-500/20 transition-all shadow-sm" onclick="claimPoints(${numericPoints})">
-                            <div>
-                                <p class="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Load Balancing Bounty</p>
-                                <p class="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-tight mt-0.5">${b.reason}</p>
-                            </div>
-                            <div class="bg-amber-500 text-white font-black px-2 py-1 rounded text-sm shadow-lg whitespace-nowrap">${b.points} PTR</div>
-                        </div>
-                    `;
-                });
-                document.getElementById('bounty-list').innerHTML = bountyHtml;
-            } else {
-                document.getElementById('bounty-area').classList.add('hidden');
-            }
-
-            const hotspot = document.getElementById('map-hotspot');
-            if (data.heatmaps.north_gate === 'critical' || data.scenario === 'peak_rush') {
-                hotspot.className = 'absolute w-8 h-8 bg-red-500/60 rounded-full top-[26%] left-[42%] animate-ping blur-sm';
-            } else {
-                hotspot.className = 'absolute w-6 h-6 bg-blue-500/45 rounded-full top-[36%] left-[48%] animate-ping blur-sm';
-            }
-        }
-
-        function connectWebSocket() {
-            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-                return;
-            }
-
-            reconnecting = false;
-            ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/data`);
-            ws.onmessage = event => renderTelemetry(JSON.parse(event.data));
-            ws.onopen = function() {
-                if (reconnectTimer) {
-                    clearTimeout(reconnectTimer);
-                    reconnectTimer = null;
-                }
-                document.getElementById('offline-banner').classList.add('hidden');
-                document.getElementById('main-header').classList.remove('opacity-50');
-            };
-
-            const scheduleReconnect = function() {
-                if (reconnecting) {
-                    return;
-                }
-                reconnecting = true;
-                if (reconnectTimer) {
-                    clearTimeout(reconnectTimer);
-                }
-                document.getElementById('offline-banner').classList.remove('hidden');
-                document.getElementById('main-header').classList.add('opacity-50');
-                document.getElementById('live-indicator').innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500 relative shadow-inner"></span> Offline';
-                document.getElementById('live-indicator').className = 'text-xs text-slate-500 font-bold flex items-center gap-1 mt-1 uppercase tracking-widest';
-                reconnectTimer = setTimeout(() => {
-                    reconnectTimer = null;
-                    connectWebSocket();
-                }, 5000);
-            };
-
-            ws.onerror = function() {
-                scheduleReconnect();
-            };
-
-            ws.onclose = function() {
-                scheduleReconnect();
-            };
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('voice-text-input').addEventListener('keydown', event => {
-                if (event.key === 'Enter') submitAIQuery(event.target.value);
+        function votePoll(option){
+            document.querySelectorAll('.poll-opt').forEach(btn => {
+                btn.onclick = null;
+                btn.classList.add('opacity-70'); // Dim other options
             });
-            document.getElementById('ai-handle').addEventListener('mousedown', startBotDrag);
-            document.getElementById('ai-handle').addEventListener('touchstart', startBotDrag, { passive: true });
-            window.addEventListener('mousemove', moveBot);
-            window.addEventListener('touchmove', moveBot, { passive: true });
-            window.addEventListener('mouseup', stopBotDrag);
-            window.addEventListener('touchend', stopBotDrag);
-            window.addEventListener('resize', keepBotInBounds);
-            updatePointsUI();
-            updateCheckoutTotal();
-            connectWebSocket();
-        });
+            const selected = event.currentTarget;
+            selected.classList.remove('opacity-70');
+            selected.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500/20');
+            
+            // Show a "Voted" checkmark or just glow the bar
+            const bar = selected.querySelector('.poll-bar');
+            bar.classList.replace('bg-indigo-50', 'bg-indigo-100');
+        }
+        function appendConversation(text,meta,tone){const bubble=document.createElement('div');bubble.className=tone==='user'?'ml-auto max-w-[85%] rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white':'max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white';bubble.innerHTML=`<p>${text}</p>${meta?`<p class="mt-2 text-[11px] uppercase tracking-[0.18em] ${tone==='user'?'text-slate-300':'text-sky-100'}">${meta}</p>`:''}`;const convo=document.getElementById('ai-conversation');convo.appendChild(bubble);convo.scrollTop=convo.scrollHeight}
+        function updateProfileUI(profile,routePlan,evaluation){document.getElementById('profile-name').value=profile.name;document.getElementById('profile-seat-section').value=profile.seat_section;document.getElementById('profile-preferred-gate').value=profile.preferred_gate;document.getElementById('profile-food-preference').value=profile.food_preference;document.getElementById('profile-accessibility-need').value=profile.accessibility_need;document.getElementById('profile-ticket-type').value=profile.ticket_type;document.getElementById('best-route').innerText=titleize(routePlan.best_gate);document.getElementById('seat-summary').innerText=`Section ${profile.seat_section}`;document.getElementById('accessible-route').innerText=routePlan.accessibility_route;document.getElementById('impact-wait').innerText=evaluation.improvements.avg_wait_improvement_pct;document.getElementById('ticket-summary').innerText=`${titleize(profile.ticket_type)} access active for Section ${profile.seat_section}.`;document.getElementById('ticket-seat').innerText=`Section ${profile.seat_section} | ${profile.ticket_type==='vip'?'Express lane':'General lane'}`;document.getElementById('ticket-tier').innerText=profile.ticket_type==='vip'?'VIP ACCESS':'GENERAL PASS';document.getElementById('pickup-summary').innerText=`${routePlan.food_pickup} is active for your profile.`;document.getElementById('ticket-pickup').innerText=routePlan.food_pickup;document.getElementById('delivery-summary').innerText=`Delivering directly to Section ${profile.seat_section} in 5 to 8 minutes`}
+        function applyScenarioMood(data){const pass=document.getElementById('live-pass-card'),guide=document.getElementById('ai-guide-preview'),chat=document.getElementById('chat-header');pass.className='rounded-[2rem] p-5 shadow-sm';guide.className='rounded-[2rem] p-5';chat.className='flex items-center justify-between gap-4 px-4 py-3 text-white';if(data.emergency_override||data.risk_level==='critical'){pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.22),_rgba(249,115,22,0.18),_white_70%)]');guide.classList.add('border','border-rose-300','bg-rose-50');chat.classList.add('bg-gradient-to-r','from-rose-600','to-orange-600');document.getElementById('live-pass-title').innerText='Critical routing is active';document.getElementById('guide-title').innerText='Safety-first guidance'}else if(data.scenario==='peak_rush'){pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(251,191,36,0.2),_rgba(14,165,233,0.14),_white_70%)]');guide.classList.add('border','border-amber-300','bg-amber-50');chat.classList.add('bg-gradient-to-r','from-amber-500','to-orange-500');document.getElementById('live-pass-title').innerText='Peak-rush route optimization';document.getElementById('guide-title').innerText='Crowd balancing guidance'}else{pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.2),_rgba(34,197,94,0.16),_white_72%)]');guide.classList.add('border','border-sky-200','bg-sky-50');chat.classList.add('bg-gradient-to-r','from-sky-500','to-indigo-600');document.getElementById('live-pass-title').innerText='Your best route right now';document.getElementById('guide-title').innerText='One-tap guidance'}}
+        function updateCrowdDensity(evaluation){
+            const density = evaluation.after_ai.max_zone_density;
+            const circle = document.getElementById('density-circle');
+            const label = document.getElementById('density-label');
+            const status = document.getElementById('density-status');
+            const percent = document.getElementById('density-percent');
+            const aura = document.getElementById('density-aura');
+            
+            percent.innerText = density;
+            circle.setAttribute('stroke-dasharray', `${density}, 100`);
+            
+            if(density > 80){
+                label.innerText = 'Critical';
+                status.innerText = 'High Saturation';
+                status.className = 'text-xs text-rose-500 font-bold uppercase tracking-tighter';
+                circle.className = 'stroke-current text-rose-500';
+                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-rose-500/30 blur-3xl rounded-full pulse-glow';
+            } else if(density > 50){
+                label.innerText = 'Moderate';
+                status.innerText = 'Expect Slow Flow';
+                status.className = 'text-xs text-amber-500 font-bold uppercase tracking-tighter';
+                circle.className = 'stroke-current text-amber-500';
+                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/20 blur-3xl rounded-full';
+            } else {
+                label.innerText = 'Optimal';
+                status.innerText = 'Safe & Free Flow';
+                status.className = 'text-xs text-emerald-400 font-bold uppercase tracking-tighter';
+                circle.className = 'stroke-current text-emerald-500';
+                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/10 blur-3xl rounded-full';
+            }
+        }
+        function selectSection(name, price){
+            document.getElementById('booking-prompt').classList.add('hidden');
+            const details = document.getElementById('selection-details');
+            details.classList.remove('hidden');
+            document.getElementById('selected-name').innerText = name;
+            document.getElementById('selected-price').innerText = `$${price}`;
+            
+            // Highlight section on map (simplified)
+            document.querySelectorAll('g.cursor-pointer path').forEach(p => p.setAttribute('fill', '#cbd5e1'));
+            // Since we don't have IDs on the paths yet, we'll just show the details for now.
+        }
+        function confirmBooking(){
+            const name = document.getElementById('selected-name').innerText;
+            alert(`Booking confirmed for ${name}! Redirecting to your digital pass.`);
+            document.getElementById('ticket-tier').innerText = name.includes('VIP') ? 'VIP ACCESS' : 'GENERAL PASS';
+            document.getElementById('ticket-seat').innerText = `Section: ${name} | Seat: ${Math.floor(Math.random()*20)+1}`;
+            toggleTicket(true);
+        }
+        function triggerSOS(){
+            const confirmSOS = confirm("TRIGGER SOS? This will alert stadium security to your exact location.");
+            if(confirmSOS){
+                submitAIQuery("SOS EMERGENCY: I am at Section 112 and need immediate assistance!");
+                document.getElementById('ai-chatbox').classList.remove('hidden');
+                document.getElementById('ai-launcher').classList.add('hidden');
+            }
+        }
+        function togglePOI(type){
+            const el = document.getElementById(`${type}-markers`);
+            if(el) el.classList.toggle('hidden');
+            // Visual feedback on button (simplified)
+            if(event) {
+                event.target.classList.toggle('bg-sky-100');
+                event.target.classList.toggle('border-sky-300');
+            }
+        }
+        function toggleSmartPath(){
+            const path = document.getElementById('smart-path-overlay');
+            if(path) path.classList.toggle('hidden');
+            // Visual feedback on button
+            if(event) event.target.classList.toggle('bg-emerald-200');
+        }
+        function renderTelemetry(data){
+            document.getElementById('scenario-pill').innerText=titleize(data.scenario);
+            renderQueues(data.wait_times_minutes);
+            renderBounties(data.gamification.bounties);
+            updateProfileUI(data.personalization,data.route_plan,data.evaluation);
+            updateCrowdDensity(data.evaluation);
+            document.getElementById('map-service-note').innerText=data.google_services.join(' + ');
+            document.getElementById('impact-copy').innerText=`${data.evaluation.improvements.reroute_gain_pct}% reroute gain in this scenario`;
+            applyScenarioMood(data);
+            
+            // Dynamic Match Info
+            if(data.match_info){
+                document.getElementById('match-score').innerText = data.match_info.score;
+                document.getElementById('match-time').innerText = data.match_info.time;
+            }
+
+            const firstAlert=data.alerts[0];
+            if(firstAlert){
+                document.getElementById('guide-preview-chat').innerText=firstAlert.msg;
+                document.getElementById('guide-preview-reason').innerText=firstAlert.reasoning
+            }
+            
+            if(data.emergency_override){
+                document.getElementById('emergency-overlay').classList.remove('hidden');
+                document.getElementById('emergency-route').innerText=data.route_plan.best_gate.replace('_',' ').toUpperCase()+' TO SAFE EXIT'
+            }else{
+                document.getElementById('emergency-overlay').classList.add('hidden')
+            }
+            
+            const hotspot=document.getElementById('map-hotspot');
+            hotspot.className=data.risk_level==='critical'?'absolute left-[42%] top-[30%] h-8 w-8 rounded-full bg-rose-500/60 blur-sm animate-ping':data.scenario==='peak_rush'?'absolute left-[48%] top-[34%] h-7 w-7 rounded-full bg-amber-500/55 blur-sm animate-ping':'absolute left-[50%] top-[38%] h-6 w-6 -translate-x-1/2 rounded-full bg-sky-500/45 blur-sm animate-ping'
+        }
+        async function saveProfile(){const response=await fetch('/api/v1/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(profilePayload())});const result=await response.json();updateProfileUI(result.profile,{best_gate:result.profile.preferred_gate,accessibility_route:result.profile.accessibility_need==='none'?'Use the shortest marked path through Gate C toward your seat.':'Use the low-slope East Hall corridor with elevator access.',food_pickup:result.profile.ticket_type==='vip'?'Suite lane pickup':'Express cart near Concourse A'},{improvements:{avg_wait_improvement_pct:document.getElementById('impact-wait').innerText||0}});switchTab('home')}
+        async function submitAIQuery(query){const trimmed=(query||'').trim();if(!trimmed)return;toggleChat(true);document.getElementById('voice-text-input').value='';appendConversation(trimmed,'Fan query','user');const response=await fetch('/api/v1/ask_ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:trimmed,profile:profilePayload()})});const result=await response.json();const ai=result.response;appendConversation(ai.narrative||ai.message,`${ai.provider} | ${ai.reasoning}`,'assistant');document.getElementById('ai-provider').innerText=ai.provider;document.getElementById('guide-preview-chat').innerText=ai.message;document.getElementById('guide-preview-reason').innerText=ai.reasoning;if(result.stadium_state.route_plan){document.getElementById('best-route').innerText=titleize(result.stadium_state.route_plan.best_gate)}}
+        async function loadConfig(){
+            const response=await fetch('/api/v1/config');
+            const result=await response.json();
+            
+            if(result.match_info){
+                document.getElementById('match-teams').innerText = result.match_info.teams;
+                document.getElementById('match-score').innerText = result.match_info.score;
+                document.getElementById('match-time').innerText = result.match_info.time;
+            }
+            if(result.weather){
+                document.getElementById('weather-temp').innerText = result.weather.temp;
+                document.getElementById('weather-cond').innerText = result.weather.condition;
+                document.getElementById('weather-icon').innerText = result.weather.icon;
+            }
+            
+            updateProfileUI(result.profile,{best_gate:result.profile.preferred_gate,accessibility_route:result.profile.accessibility_need==='none'?'Use the shortest marked path through Gate C toward Section 112.':'Use the low-slope East Hall corridor with elevator access.',food_pickup:result.profile.ticket_type==='vip'?'Suite lane pickup':'Express cart near Concourse A'},{improvements:{avg_wait_improvement_pct:0}});document.getElementById('ai-provider').innerText=result.llm_enabled?'Gemini + Rules':'Rules';updatePointsUI();updateCheckoutTotal()}
+        function connectWebSocket(){if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;reconnecting=false;ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/data`);ws.onmessage=(event)=>renderTelemetry(JSON.parse(event.data));ws.onopen=()=>{if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}document.getElementById('offline-banner').classList.add('hidden');document.getElementById('main-header').classList.remove('opacity-60');document.getElementById('live-indicator').innerText='Live Sync Active'};const scheduleReconnect=()=>{if(reconnecting)return;reconnecting=true;document.getElementById('offline-banner').classList.remove('hidden');document.getElementById('main-header').classList.add('opacity-60');document.getElementById('live-indicator').innerText='Offline Fallback';reconnectTimer=setTimeout(()=>{reconnectTimer=null;connectWebSocket()},5000)};ws.onerror=scheduleReconnect;ws.onclose=scheduleReconnect}
+        document.addEventListener('DOMContentLoaded',async()=>{await loadConfig();switchTab('home');document.getElementById('voice-text-input').addEventListener('keydown',(event)=>{if(event.key==='Enter')submitAIQuery(event.target.value)});connectWebSocket()})
     </script>
 </body>
 </html>

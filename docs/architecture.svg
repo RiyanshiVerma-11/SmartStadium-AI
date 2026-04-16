@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" fill="none">
+  <rect width="1200" height="700" rx="32" fill="#07101D"/>
+  <rect x="50" y="70" width="260" height="130" rx="28" fill="#0F766E" fill-opacity="0.22" stroke="#5EEAD4"/>
+  <text x="80" y="120" fill="#CCFBF1" font-family="Arial" font-size="24" font-weight="700">Fan Companion</text>
+  <text x="80" y="158" fill="#99F6E4" font-family="Arial" font-size="18">Personalization, maps,</text>
+  <text x="80" y="184" fill="#99F6E4" font-family="Arial" font-size="18">AI assistant, rewards</text>
+  <rect x="50" y="255" width="260" height="130" rx="28" fill="#0369A1" fill-opacity="0.22" stroke="#7DD3FC"/>
+  <text x="80" y="305" fill="#E0F2FE" font-family="Arial" font-size="24" font-weight="700">Staff Command</text>
+  <text x="80" y="343" fill="#BAE6FD" font-family="Arial" font-size="18">Scenarios, metrics,</text>
+  <text x="80" y="369" fill="#BAE6FD" font-family="Arial" font-size="18">staffing decisions</text>
+  <rect x="450" y="90" width="310" height="150" rx="28" fill="#1D4ED8" fill-opacity="0.22" stroke="#93C5FD"/>
+  <text x="485" y="140" fill="#DBEAFE" font-family="Arial" font-size="24" font-weight="700">FastAPI Orchestrator</text>
+  <text x="485" y="178" fill="#BFDBFE" font-family="Arial" font-size="18">REST APIs, WebSocket stream,</text>
+  <text x="485" y="204" fill="#BFDBFE" font-family="Arial" font-size="18">scenario engine, evaluation layer</text>
+  <rect x="450" y="300" width="310" height="150" rx="28" fill="#7C3AED" fill-opacity="0.2" stroke="#C4B5FD"/>
+  <text x="485" y="350" fill="#EDE9FE" font-family="Arial" font-size="24" font-weight="700">Hybrid AI Layer</text>
+  <text x="485" y="388" fill="#DDD6FE" font-family="Arial" font-size="18">Rule engine for safety-critical logic</text>
+  <text x="485" y="414" fill="#DDD6FE" font-family="Arial" font-size="18">Gemini narration when API key exists</text>
+  <rect x="860" y="120" width="280" height="120" rx="28" fill="#92400E" fill-opacity="0.22" stroke="#FCD34D"/>
+  <text x="895" y="168" fill="#FEF3C7" font-family="Arial" font-size="24" font-weight="700">SQLite Evidence Store</text>
+  <text x="895" y="200" fill="#FDE68A" font-family="Arial" font-size="18">alerts, queries, actions, snapshots</text>
+  <rect x="860" y="305" width="280" height="145" rx="28" fill="#991B1B" fill-opacity="0.22" stroke="#FDA4AF"/>
+  <text x="895" y="355" fill="#FFE4E6" font-family="Arial" font-size="24" font-weight="700">Google Services</text>
+  <text x="895" y="388" fill="#FECDD3" font-family="Arial" font-size="18">Google Maps embed for venue radar</text>
+  <text x="895" y="414" fill="#FECDD3" font-family="Arial" font-size="18">Gemini API for optional summaries</text>
+  <path d="M310 135H450" stroke="#5EEAD4" stroke-width="5" stroke-linecap="round"/>
+  <path d="M310 320H450" stroke="#7DD3FC" stroke-width="5" stroke-linecap="round"/>
+  <path d="M760 170H860" stroke="#93C5FD" stroke-width="5" stroke-linecap="round"/>
+  <path d="M760 375H860" stroke="#C4B5FD" stroke-width="5" stroke-linecap="round"/>
+  <path d="M605 240V300" stroke="#93C5FD" stroke-width="5" stroke-linecap="round"/>
+  <text x="78" y="580" fill="#94A3B8" font-family="Arial" font-size="20">SmartStadium AI Premium architecture overview for README and judging.</text>
+</svg>
