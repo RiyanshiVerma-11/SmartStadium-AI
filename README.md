@@ -38,9 +38,12 @@ The differentiator of this project is the **Before vs. After AI** evaluation eng
 ## 🛠️ Feature Showcase
 
 ### 🏟️ Fan Companion (The Smart Assistant)
+*   **Multimodal AI Assistant**: Integrated **Voice-to-Text** (🎤) and **Text-to-Speech** (🔊) for a hands-free stadium guide experience.
+*   **Interactive Mapping Engine**: Professional-grade **Leaflet.js** integration with real-time zooming, panning, and dynamic polyline routing.
+*   **Dynamic Crowd Heatmaps**: Live-updating heatmap layers that visualize stadium congestion zones as they happen.
+*   **Spatial POI Logic**: Interactive toggles for 🚻 Washrooms, 🍔 Food Stalls, and 🚪 Exits with real-time map markers.
 *   **Live MatchHub**: Real-time score & clock sync with AI-driven match reactions.
 *   **Predictive Ticketing**: Interactive SVG map with premium seat selection.
-*   **Smart Navigation**: One-tap guidance to the shortest lines via "Crowd-Free Paths".
 *   **Digital Passport**: VIP QR-code passes with integrated reward point tracking.
 *   **Express Concessions**: Live-trackable food ordering with AI-calculated delivery windows.
 
@@ -58,14 +61,16 @@ We believe AI should be **Reliable First, Explanatory Second**.
 
 1.  **Deterministic Rule Engine**: Handles safety-critical logic (shortest lines, emergency exits) to ensure 100% accuracy and millisecond response times.
 2.  **Gemini LLM Layer**: Interprets complex fan queries and provides a "Human-Like" narrative on top of the raw data.
-3.  **Fallback Resilience**: If the API is unreachable, the system automatically reverts to hard-coded safety logic, showing an "Offline Ready" state to the fan.
+3.  **Multimodal Interface**: Uses the **Web Speech API** to bridge the gap between AI narrative and physical fan interaction.
+4.  **Fallback Resilience**: If the API is unreachable, the system automatically reverts to hard-coded safety logic, showing an "Offline Ready" state to the fan.
 
 ---
 
-## 🔌 Google Services Integration
+## 🔌 Google Services & Modern Standards Integration
 
 *   **Google Gemini AI**: Powering the natural language explanation and intent classification.
-*   **Google Maps Platform**: Embedded venue radar for geospatial context.
+*   **Leaflet.js & OpenStreetMap**: Professional geospatial engine for real-time venue navigation.
+*   **Web Speech API**: Powering the multimodal voice-to-text and speech synthesis interface.
 *   **Google Web Standards**: Optimized for low-latency PWA-style performance.
 
 ---
@@ -73,6 +78,17 @@ We believe AI should be **Reliable First, Explanatory Second**.
 ## 🚀 Getting Started
 
 Experience the future of stadium operations in 60 seconds.
+
+### 🔑 Gemini API Setup (Required for AI Analysis)
+To enable the AI explanatory features:
+1.  Go to [Google AI Studio](https://aistudio.google.com/app/apikey).
+2.  Create a **Gemini 1.5 Flash** API key (Free tier).
+3.  Create a `.env` file in the root directory:
+    ```bash
+    cp .env.example .env
+    ```
+4.  Paste your key into `.env`: `GEMINI_API_KEY=your_key_here`
+5.  Restart the application: `docker compose up --build`
 
 ### Option 1: Docker (Recommended)
 ```bash
@@ -118,6 +134,8 @@ SmartStadium AI implements a robust, multi-persona gateway to ensure that only a
 ## 📈 Tech Stack
 - **Backend**: Python 3.11, FastAPI, WebSockets
 - **AI/ML**: Google Gemini 1.5 Pro/Flash, Hybrid Rule Engine
+- **Geospatial**: Leaflet.js, OpenStreetMap, Leaflet.heat
+- **Multimodal**: Web Speech API (STT & TTS)
 - **Frontend**: Tailwind CSS, Vanilla JS (No-framework speed)
 - **Database**: SQLite (Self-contained persistence)
 - **Infrastructure**: Docker, Docker Compose

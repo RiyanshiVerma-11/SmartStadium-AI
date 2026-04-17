@@ -25,7 +25,12 @@
             0%, 100% { opacity: 0.2; transform: scale(1); }
             50% { opacity: 0.4; transform: scale(1.1); }
         }
+        #leaflet-map { height: 420px; width: 100%; border-radius: 1.75rem; z-index: 10; }
+        .leaflet-container { background: #f8fafc; font-family: inherit; }
     </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 </head>
 <body class="min-h-screen">
     <div id="offline-banner" class="hidden sticky top-0 z-50 bg-amber-500 px-4 py-3 text-center text-sm font-bold text-white">Low network signal detected. Cached routes and offline guidance are active.</div>
@@ -65,20 +70,28 @@
         <div class="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-[2rem] bg-white p-6 shadow-2xl slide-up dark-mode:bg-slate-950">
             <div class="mx-auto mb-5 h-1.5 w-14 rounded-full bg-slate-200 dark-mode:bg-slate-700"></div>
             <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.28em] text-amber-600">🍔 Order and Rewards</p><h2 class="mt-2 text-2xl font-black">Express Concessions</h2></div><button onclick="toggleOrderSheet(false)" class="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Close</button></div>
-            <div class="mt-5 space-y-3">
-                <div class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"><div><p class="font-bold">🌭 Stadium Hot Dog</p><p class="mt-1 text-sm" style="color:var(--muted)">Classic all-beef frank</p></div><button onclick="addToCart(6.50)" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">+$6.50</button></div>
-                <div class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"><div><p class="font-bold">🍺 Craft IPA Beer</p><p class="mt-1 text-sm" style="color:var(--muted)">ID check at pickup</p></div><button onclick="addToCart(12.00)" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">+$12.00</button></div>
+            
+            <!-- Category Filter -->
+            <div class="mt-5 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <button onclick="filterMenu('all')" class="food-cat-btn flex-shrink-0 rounded-2xl bg-slate-900 px-4 py-2 text-xs font-bold text-white">All</button>
+                <button onclick="filterMenu('meals')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Meals</button>
+                <button onclick="filterMenu('snacks')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Snacks</button>
+                <button onclick="filterMenu('drinks')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Drinks</button>
+            </div>
+
+            <div id="concessions-menu" class="mt-5 max-h-[40vh] space-y-3 overflow-y-auto">
+                <!-- Items populated by JS -->
             </div>
             <div class="mt-5 rounded-[1.7rem] border border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-white p-4">
                 <div class="flex items-center justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-[0.24em] text-amber-600">🏆 Flow Rewards</p><p class="mt-1 text-sm font-semibold">Redeem points for instant food discounts.</p></div><div class="rounded-2xl bg-amber-500 px-3 py-2 text-center text-white"><p class="text-[10px] uppercase tracking-[0.22em] opacity-80">Balance</p><p class="text-sm font-black"><span id="order-points-balance">240</span> PTR</p></div></div>
                 <div class="mt-3 grid grid-cols-2 gap-2">
-                    <button id="reward-discount-small" onclick="redeemReward('discount_small')" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left disabled:opacity-40"><p class="text-xs font-bold uppercase tracking-[0.22em] text-amber-600">$2 Off</p><p class="mt-1 text-sm font-semibold">Cost: 120 PTR</p></button>
-                    <button id="reward-discount-large" onclick="redeemReward('discount_large')" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left disabled:opacity-40"><p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-600">$5 Off</p><p class="mt-1 text-sm font-semibold">Cost: 260 PTR</p></button>
+                    <button id="reward-discount-small" onclick="redeemReward('discount_small')" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left disabled:opacity-40"><p class="text-xs font-bold uppercase tracking-[0.22em] text-amber-600">₹150 Off</p><p class="mt-1 text-sm font-semibold">Cost: 120 PTR</p></button>
+                    <button id="reward-discount-large" onclick="redeemReward('discount_large')" class="rounded-2xl border border-amber-300 bg-white px-3 py-3 text-left disabled:opacity-40"><p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-600">₹400 Off</p><p class="mt-1 text-sm font-semibold">Cost: 260 PTR</p></button>
                 </div>
                 <p id="reward-status" class="mt-3 text-xs font-medium" style="color:var(--muted)">Redeem points to lower your checkout total instantly.</p>
             </div>
             <p id="delivery-summary" class="mt-4 text-center text-xs font-bold text-emerald-600">Delivering directly to Section 112 in 5 to 8 minutes</p>
-            <button id="checkout-btn" onclick="submitOrder()" class="mt-4 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Checkout | $0.00</button>
+            <button id="checkout-btn" onclick="submitOrder()" class="mt-4 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Checkout | ₹0.00</button>
             
             <!-- Live Tracking Section -->
             <div id="order-tracking" class="hidden mt-6 space-y-4">
@@ -119,28 +132,13 @@
                         <button onclick="toggleSmartPath()" class="poi-btn flex-shrink-0 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm transition-colors">✨ Crowd-Free Path</button>
                     </div>
 
-                    <div class="relative mt-4 overflow-hidden rounded-[1.75rem] border border-slate-200">
-                        <iframe id="google-map-frame" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3311.23351939109!2d-118.34149022372439!3d33.95340147319409!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80c2b740523e85bb%3A0xe7a5cda11a2f64fa!2sSoFi%20Stadium!5e0!3m2!1sen!2sus!4v1713200000000!5m2!1sen!2sus" width="100%" height="420" style="border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                    <div class="relative mt-4 overflow-hidden rounded-[1.75rem] border border-slate-200 shadow-inner">
+                        <div id="leaflet-map"></div>
                         
-                        <!-- Smart Overlays -->
-                        <div class="pointer-events-none absolute inset-0">
-                            <!-- Hotspot -->
-                            <div id="map-hotspot" class="absolute left-[50%] top-[38%] h-6 w-6 -translate-x-1/2 rounded-full bg-sky-500/45 blur-sm animate-ping"></div>
-                            
-                            <!-- Simulated Smart Path (SVG) -->
-                            <svg id="smart-path-overlay" class="absolute inset-0 w-full h-full hidden" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                <path d="M50 80 Q 60 70, 70 50 T 80 20" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="4,4" class="animate-[dash_2s_linear_infinite]" />
-                            </svg>
-                            
-                            <!-- POI Markers (Simulated) -->
-                            <div id="washroom-markers" class="hidden">
-                                <div class="absolute left-[30%] top-[40%] text-xl">🚻</div>
-                                <div class="absolute left-[70%] top-[60%] text-xl">🚻</div>
-                            </div>
-                            <div id="food-markers" class="hidden">
-                                <div class="absolute left-[40%] top-[20%] text-xl">🍔</div>
-                                <div class="absolute left-[60%] top-[80%] text-xl">🍿</div>
-                            </div>
+                        <!-- Smart Overlays (Legacy fallback or info) -->
+                        <div id="map-interaction-overlay" class="pointer-events-none absolute inset-0 z-20">
+                            <!-- Hotspot (Now integrated in Leaflet, but keeping for flair) -->
+                            <div id="map-hotspot" class="absolute left-[50%] top-[38%] h-6 w-6 -translate-x-1/2 rounded-full bg-sky-500/35 blur-sm animate-ping hidden"></div>
                         </div>
                     </div>
                 </div>
@@ -343,7 +341,7 @@
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <p id="selected-price" class="text-3xl font-black text-white">$250</p>
+                                    <p id="selected-price" class="text-3xl font-black text-white">₹2500</p>
                                     <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">PER SEAT</p>
                                 </div>
                             </div>
@@ -379,7 +377,19 @@
             <div id="ai-chatbox" class="chat-shell hidden overflow-hidden rounded-[1.8rem] border border-sky-200 bg-white">
                 <div id="chat-header" class="flex items-center justify-between gap-4 px-4 py-3 text-white"><div><p class="text-sm font-black">🤖 Stadium AI Bot</p><p class="text-[10px] uppercase tracking-[0.24em] text-sky-100">Quick help in the corner</p></div><button onclick="toggleChat(false)" class="rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]">Hide</button></div>
                 <div id="ai-conversation" class="max-h-72 space-y-3 overflow-y-auto bg-slate-50 p-4"><div class="max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white"><p>Hello. I am syncing with the live stadium state now.</p><p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-sky-100">Your saved profile shapes my advice.</p></div></div>
-                <div class="space-y-3 bg-white p-4"><div class="grid grid-cols-2 gap-2"><button onclick="submitAIQuery('Where is the shortest line right now?')" class="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-3 text-left text-xs font-bold text-sky-700">🚪 Shortest line</button><button onclick="submitAIQuery('Help, there is an emergency near section 112.')" class="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-left text-xs font-bold text-rose-700">🚨 Emergency help</button></div><div class="flex gap-2"><input id="voice-text-input" class="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="Ask about gates, food, queues, safety..."><button onclick="submitAIQuery(document.getElementById('voice-text-input').value)" class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Send</button></div></div>
+                <div class="space-y-3 bg-white p-4">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="submitAIQuery('Where is the shortest line right now?')" class="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-3 text-left text-xs font-bold text-sky-700">🚪 Shortest line</button>
+                        <button onclick="submitAIQuery('Help, there is an emergency near section 112.')" class="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-left text-xs font-bold text-rose-700">🚨 Emergency help</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <input id="voice-text-input" class="w-full rounded-2xl border border-slate-200 px-4 py-3 pr-10 text-sm" placeholder="Ask or tap mic...">
+                            <button id="mic-btn" onclick="toggleVoice()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-sky-600 transition-colors">🎤</button>
+                        </div>
+                        <button onclick="submitAIQuery(document.getElementById('voice-text-input').value)" class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Send</button>
+                    </div>
+                </div>
             </div>
             <div class="mt-3 flex justify-end"><button id="ai-launcher" onclick="toggleChat(true)" class="rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 px-5 py-4 text-sm font-black text-white shadow-[0_12px_36px_rgba(59,130,246,0.45)]">🤖 AI</button></div>
         </div>
@@ -387,268 +397,336 @@
     <script>
         let totalPoints = 240, cartTotal = 0, activeDiscount = 0, ws = null, reconnectTimer = null, reconnecting = false, isDarkMode = false;
         let claimedBounties = new Set();
-        let lastBounties = []; // Keep track of current bounties for re-rendering
+        let lastBounties = []; 
+        let map, routeLine, recognition, heatmapLayer;
+        const STADIUM_COORDS = [33.9534, -118.3392];
+        const GATE_COORDS = {
+            'gate_a': [33.9545, -118.3395],
+            'gate_b': [33.9530, -118.3410],
+            'gate_c': [33.9520, -118.3385],
+            'food': [33.9538, -118.3400]
+        };
+        
+        const menuItems = [
+            { id: 1, name: 'Biryani Bowl', desc: 'Aromatic basmati with premium spices', price: 450, cat: 'meals', icon: '🍛' },
+            { id: 2, name: 'Burger Combo', desc: 'Juicy patty + fries + soft drink', price: 350, cat: 'meals', icon: '🍔' },
+            { id: 3, name: 'Pizza Slice', desc: 'Cheesy margherita with fresh herbs', price: 200, cat: 'meals', icon: '🍕' },
+            { id: 4, name: 'Samosa Plate', desc: '2 pcs with spicy mint chutney', price: 120, cat: 'snacks', icon: '🥟' },
+            { id: 5, name: 'Popcorn Tub', desc: 'Butter salted large theater tub', price: 150, cat: 'snacks', icon: '🍿' },
+            { id: 6, name: 'Nachos Supreme', desc: 'With hot cheese and jalapenos', price: 180, cat: 'snacks', icon: '🌮' },
+            { id: 7, name: 'Cold Coffee', desc: 'Iced brew with creamy milk', price: 150, cat: 'drinks', icon: '🧋' },
+            { id: 8, name: 'Soft Drink', desc: 'Large chilled cola or lemon', price: 90, cat: 'drinks', icon: '🥤' },
+            { id: 9, name: 'Water Bottle', desc: 'Mineral water 500ml', price: 50, cat: 'drinks', icon: '💧' },
+        ];
+
+        function initMap() {
+            if (map) return;
+            map = L.map('leaflet-map', { zoomControl: false }).setView(STADIUM_COORDS, 17);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CartoDB'
+            }).addTo(map);
+            L.circle(STADIUM_COORDS, { radius: 25, color: '#3b82f6', fillOpacity: 0.15 }).addTo(map);
+
+            // Initialize Heatmap
+            if (typeof L.heatLayer === 'function') {
+                heatmapLayer = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
+            }
+        }
+
+        function updateHeatmap(density) {
+            if (!heatmapLayer) return;
+            const points = [
+                [STADIUM_COORDS[0], STADIUM_COORDS[1], density / 100],
+                [STADIUM_COORDS[0] + 0.0005, STADIUM_COORDS[1] + 0.0005, (density * 0.8) / 100],
+                [STADIUM_COORDS[0] - 0.0008, STADIUM_COORDS[1] - 0.0003, (density * 1.2) / 100],
+                [STADIUM_COORDS[0] + 0.0002, STADIUM_COORDS[1] - 0.0006, (density * 0.5) / 100]
+            ];
+            heatmapLayer.setLatLngs(points);
+        }
+
+        function drawRoute(target) {
+            if(!map) return;
+            if(routeLine) map.removeLayer(routeLine);
+            const t = (target || '').toLowerCase();
+            let endCoords = STADIUM_COORDS;
+            if(t.includes('gate a') || t.includes('north') || t.includes('gate_a')) endCoords = GATE_COORDS['gate_a'];
+            else if(t.includes('gate b') || t.includes('concourse') || t.includes('gate_b')) endCoords = GATE_COORDS['gate_b'];
+            else if(t.includes('gate c') || t.includes('south') || t.includes('gate_c')) endCoords = GATE_COORDS['gate_c'];
+            else if(t.includes('food')) endCoords = GATE_COORDS['food'];
+
+            routeLine = L.polyline([STADIUM_COORDS, endCoords], {
+                color: '#10b981', weight: 6, opacity: 0.8, dashArray: '12, 12'
+            }).addTo(map);
+            map.flyTo(endCoords, 18);
+        }
+
+        function toggleVoice() {
+            const btn = document.getElementById('mic-btn');
+            const SpeechRecognition = window.SpeechRecognition || window.webkitRecognition;
+            if (!SpeechRecognition) { alert("Speech not supported"); return; }
+            if (recognition && recognition.active) { recognition.stop(); return; }
+            recognition = new SpeechRecognition();
+            recognition.onstart = () => { btn.innerText = '⭕'; btn.classList.add('text-rose-500', 'animate-pulse'); };
+            recognition.onresult = (e) => { const text = e.results[0][0].transcript; document.getElementById('voice-text-input').value = text; submitAIQuery(text); };
+            recognition.onend = () => { btn.innerText = '🎤'; btn.classList.remove('text-rose-500', 'animate-pulse'); };
+            recognition.start();
+        }
+
+        function speak(text) {
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.rate = 1.05;
+            window.speechSynthesis.speak(msg);
+        }
+
+        function renderMenu(category = 'all') {
+            const menuWrap = document.getElementById('concessions-menu');
+            menuWrap.innerHTML = '';
+            const filtered = category === 'all' ? menuItems : menuItems.filter(i => i.cat === category);
+            filtered.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4';
+                el.innerHTML = `<div><p class="font-bold">${item.icon} ${item.name}</p><p class="mt-1 text-sm" style="color:var(--muted)">${item.desc}</p></div><button onclick="addToCart(${item.price})" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">+₹${item.price}</button>`;
+                menuWrap.appendChild(el);
+            });
+        }
+
+        function filterMenu(cat) {
+            document.querySelectorAll('.food-cat-btn').forEach(b => {
+                b.classList.remove('bg-slate-900', 'text-white');
+                b.classList.add('border', 'border-slate-200', 'bg-white', 'text-slate-700');
+            });
+            event.currentTarget.classList.remove('border', 'border-slate-200', 'bg-white', 'text-slate-700');
+            event.currentTarget.classList.add('bg-slate-900', 'text-white');
+            renderMenu(cat);
+        }
+
         function titleize(v){return v.split('_').map(p=>p.charAt(0).toUpperCase()+p.slice(1)).join(' ')}
         function serviceEmoji(k){if(k.includes('food'))return'🍔'; if(k.includes('restroom'))return'🚻'; if(k.includes('merch'))return'🧢'; return'🛂'}
-        function switchTab(tab){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('bg-sky-100','text-sky-700');b.classList.add('text-slate-500')});document.getElementById(`tab-${tab}`).classList.add('active');const btn=document.querySelector(`[data-tab-btn="${tab}"]`);btn.classList.add('bg-sky-100','text-sky-700');btn.classList.remove('text-slate-500')}
+        function switchTab(tab){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('bg-sky-100','text-sky-700');b.classList.add('text-slate-500')});document.getElementById(`tab-${tab}`).classList.add('active');const btn=document.querySelector(`[data-tab-btn="${tab}"]`);btn.classList.add('bg-sky-100','text-sky-700');btn.classList.remove('text-slate-500'); if(tab==='map' && map) setTimeout(()=>map.invalidateSize(), 300);}
         function toggleChat(show){document.getElementById('ai-chatbox').classList.toggle('hidden',!show);document.getElementById('ai-launcher').classList.toggle('hidden',show)}
         function toggleTicket(show){document.getElementById('ticket-modal').classList.toggle('hidden',!show)}
         function toggleOrderSheet(show){document.getElementById('order-sheet').classList.toggle('hidden',!show);updatePointsUI();updateCheckoutTotal()}
         function toggleTheme(){isDarkMode=!isDarkMode;document.body.classList.toggle('dark-mode',isDarkMode);document.getElementById('theme-toggle').innerText=isDarkMode?'Day Mode':'Arena Mode'}
         function profilePayload(){return{name:document.getElementById('profile-name').value,seat_section:document.getElementById('profile-seat-section').value,preferred_gate:document.getElementById('profile-preferred-gate').value,food_preference:document.getElementById('profile-food-preference').value,accessibility_need:document.getElementById('profile-accessibility-need').value,ticket_type:document.getElementById('profile-ticket-type').value}}
-        function navigateToService(key){
-            let poiType = 'food';
-            if(key.includes('restroom')) poiType = 'washroom';
-            if(key.includes('security')) poiType = 'exit';
-            
-            // Switch Tab
-            switchTab('map');
-            
-            // Ensure indicators are on
-            const markers = document.getElementById(`${poiType}-markers`);
-            if(markers) markers.classList.remove('hidden');
-            
-            // Show smart path
-            const path = document.getElementById('smart-path-overlay');
-            if(path) path.classList.remove('hidden');
-            
-            // Feedback
-            document.getElementById('map-service-note').innerText = `Navigating to ${titleize(key)}...`;
+        function navigateToService(key){ 
+            const mapping = { 'food_stalls': 'food', 'restrooms': 'gate_c', 'security_check': 'gate_a', 'merch_stand': 'gate_b' };
+            const mapKey = mapping[key] || key;
+            switchTab('map'); 
+            drawRoute(mapKey); 
+            document.getElementById('map-service-note').innerText = `Navigating to ${titleize(key)}...`; 
         }
-        function renderQueues(waitTimes){const wrap=document.getElementById('fan-waits');wrap.innerHTML='';Object.entries(waitTimes).forEach(([k,v])=>{const row=document.createElement('button');row.onclick=()=>navigateToService(k);row.className='w-full text-left rounded-[1.5rem] bg-slate-50 p-4 active:scale-95 transition-all hover:bg-slate-100 hover:shadow-sm';row.innerHTML=`<div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.26em]" style="color:var(--muted)">${serviceEmoji(k)} ${titleize(k)}</p><p class="mt-2 text-sm" style="color:var(--muted)">${v>12?'High traffic':'Comfortable flow'}</p></div><div class="flex items-center gap-3"><p class="text-2xl font-black ${v>12?'text-rose-600':'text-emerald-600'}">${v}<span class="text-sm text-slate-400">m</span></p><div class="rounded-full bg-slate-200 p-2"><span class="block w-4 h-4 text-center leading-none text-[10px] grayscale">📍</span></div></div></div>`;wrap.appendChild(row)})}
-        function renderBounties(bounties){
-            const area=document.getElementById('bounty-area'),list=document.getElementById('bounty-list');
-            if(!bounties) return;
-            lastBounties = bounties; // Update cache
-            
-            // Filter out claimed
-            const active = bounties.filter(b => !claimedBounties.has(b.reason));
-            
-            if(active.length===0){
-                area.classList.add('hidden');
-                list.innerHTML='';
+        function renderQueues(waitTimes){
+            const wrap=document.getElementById('fan-waits');
+            if(!wrap) return;
+            wrap.innerHTML='';
+            if(!waitTimes || Object.keys(waitTimes).length === 0) {
+                wrap.innerHTML = '<div class="p-8 text-center text-slate-400 font-medium">Synchronizing live queue data...</div>';
                 return;
             }
-            
-            area.classList.remove('hidden');
-            list.innerHTML='';
+            Object.entries(waitTimes).forEach(([k,v])=>{
+                const row=document.createElement('button');
+                row.onclick=()=>navigateToService(k);
+                row.className='w-full text-left rounded-[1.5rem] bg-slate-50 p-4 active:scale-95 transition-all hover:bg-slate-100 hover:shadow-sm border border-transparent hover:border-sky-100';
+                row.innerHTML=`<div class="flex items-center justify-between gap-4">
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-500">${serviceEmoji(k)} ${titleize(k)}</p>
+                        <p class="mt-2 text-sm font-semibold ${v>12?'text-rose-500':'text-slate-600'}">${v>12?'High traffic':'Comfortable flow'}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <p class="text-2xl font-black ${v>12?'text-rose-600':'text-emerald-600'}">${v}<span class="text-xs text-slate-400 ml-0.5">m</span></p>
+                        <div class="rounded-full bg-slate-200/50 p-2"><span class="block w-4 h-4 text-center leading-none text-[10px] grayscale">📍</span></div>
+                    </div>
+                </div>`;
+                wrap.appendChild(row)
+            })}
+        function renderBounties(bounties){
+            const area=document.getElementById('bounty-area'),list=document.getElementById('bounty-list');
+            if(!bounties || !area) return;
+            lastBounties = bounties;
+            const active = bounties.filter(b => !claimedBounties.has(b.reason));
+            if(active.length===0){area.classList.add('hidden');list.innerHTML='';return;}
+            area.classList.remove('hidden');list.innerHTML='';
             active.forEach(b=>{
                 const card=document.createElement('button');
                 card.className='w-full rounded-[1.4rem] border border-amber-200 bg-white px-4 py-3 text-left active:scale-95 transition-transform';
-                card.innerHTML=`<div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.26em] text-amber-700">🏆 Load balancing bounty</p><p class="mt-2 text-sm" style="color:var(--muted)">${b.reason}</p></div><span class="rounded-full bg-amber-500 px-3 py-2 text-sm font-black text-white">${b.points} PTR</span></div>`;
-                card.onclick=()=>{
-                    claimedBounties.add(b.reason);
-                    totalPoints+=Number(String(b.points).replace(/[^0-9]/g,''))||0;
-                    updatePointsUI();
-                    renderBounties(lastBounties); // Immediate re-render
-                };
+                card.innerHTML=`<div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.26em] text-amber-700">🏆 Load balancing bounty</p><p class="mt-2 text-sm text-slate-600">${b.reason}</p></div><span class="rounded-full bg-amber-500 px-3 py-2 text-sm font-black text-white">${b.points} PTR</span></div>`;
+                card.onclick=()=>{claimedBounties.add(b.reason);totalPoints+=Number(String(b.points).replace(/[^0-9]/g,''))||0;updatePointsUI();renderBounties(lastBounties);};
                 list.appendChild(card)
             })
         }
-        function updatePointsUI(){document.getElementById('flow-points').innerText=totalPoints;document.getElementById('order-points-balance').innerText=totalPoints;document.getElementById('ticket-points-badge').innerText=totalPoints;document.getElementById('reward-discount-small').disabled=totalPoints<120||activeDiscount>=2;document.getElementById('reward-discount-large').disabled=totalPoints<260||activeDiscount>=5}
-        function updateCheckoutTotal(){document.getElementById('checkout-btn').innerText=`Checkout | $${Math.max(cartTotal-activeDiscount,0).toFixed(2)}`}
+        function updatePointsUI(){document.getElementById('flow-points').innerText=totalPoints;document.getElementById('order-points-balance').innerText=totalPoints;document.getElementById('ticket-points-badge').innerText=totalPoints;document.getElementById('reward-discount-small').disabled=totalPoints<120||activeDiscount>=150;document.getElementById('reward-discount-large').disabled=totalPoints<260||activeDiscount>=400}
+        function updateCheckoutTotal(){document.getElementById('checkout-btn').innerText=`Checkout | ₹${Math.max(cartTotal-activeDiscount,0).toFixed(2)}`}
         function addToCart(price){cartTotal+=price;updateCheckoutTotal()}
-        function redeemReward(key){if(key==='discount_small'){if(totalPoints<120||activeDiscount>=2)return;totalPoints-=120;activeDiscount+=2;document.getElementById('reward-status').innerText='Applied $2 off to your concessions order.'}if(key==='discount_large'){if(totalPoints<260||activeDiscount>=5)return;totalPoints-=260;activeDiscount+=5;document.getElementById('reward-status').innerText='Applied $5 off to your concessions order.'}updatePointsUI();updateCheckoutTotal()}
-        function submitOrder(){
-            if(cartTotal===0)return;
-            const total = Math.max(cartTotal - activeDiscount, 0).toFixed(2);
-            
-            // Show tracking, hide checkout
-            document.getElementById('checkout-btn').classList.add('hidden');
-            document.getElementById('reward-status').parentElement.classList.add('hidden');
-            document.getElementById('order-tracking').classList.remove('hidden');
-            
-            simulateOrderProgress();
-            
-            // Reset totals for next time (but logic will wait for delivery)
-            cartTotal=0; activeDiscount=0;
-        }
+        function redeemReward(key){if(key==='discount_small'){if(totalPoints<120||activeDiscount>=150)return;totalPoints-=120;activeDiscount+=150;document.getElementById('reward-status').innerText='Applied ₹150 off to your concessions order.'}if(key==='discount_large'){if(totalPoints<260||activeDiscount>=400)return;totalPoints-=260;activeDiscount+=400;document.getElementById('reward-status').innerText='Applied ₹400 off to your concessions order.'}updatePointsUI();updateCheckoutTotal()}
+        function submitOrder(){if(cartTotal===0)return;document.getElementById('checkout-btn').classList.add('hidden');document.getElementById('reward-status').parentElement.classList.add('hidden');document.getElementById('order-tracking').classList.remove('hidden');simulateOrderProgress();cartTotal=0; activeDiscount=0;}
         function simulateOrderProgress(){
             const status = document.getElementById('tracking-status');
             const progress = document.getElementById('tracking-progress');
             const msg = document.getElementById('tracking-msg');
-            
-            setTimeout(() => {
-                status.innerText = 'Cooking';
-                progress.style.width = '45%';
-                msg.innerText = 'Chef is preparing your order with fresh ingredients.';
-            }, 3000);
-            
-            setTimeout(() => {
-                status.innerText = 'Out for Delivery';
-                status.className = 'rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-700';
-                progress.style.width = '75%';
-                msg.innerText = 'A stadium runner is bringing your food to Section 112.';
-            }, 7000);
-            
-            setTimeout(() => {
-                status.innerText = 'Delivered';
-                progress.style.width = '100%';
-                msg.innerText = 'Enjoy! Your runner has arrived at your seat.';
-                
-                // Final reset after delay
-                setTimeout(() => {
-                    toggleOrderSheet(false);
-                    // Reset UI for next order
-                    document.getElementById('checkout-btn').classList.remove('hidden');
-                    document.getElementById('reward-status').parentElement.classList.remove('hidden');
-                    document.getElementById('order-tracking').classList.add('hidden');
-                    status.innerText = 'Preparing';
-                    status.className = 'rounded-full bg-sky-100 px-3 py-1 text-[10px] font-bold text-sky-700';
-                    progress.style.width = '15%';
-                }, 3000);
-            }, 12000);
+            setTimeout(() => { status.innerText = 'Cooking'; progress.style.width = '45%'; msg.innerText = 'Chef is preparing your order.'; }, 3000);
+            setTimeout(() => { status.innerText = 'Out for Delivery'; status.className = 'rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-700'; progress.style.width = '75%'; msg.innerText = 'A runner is bringing your food.'; }, 7000);
+            setTimeout(() => { status.innerText = 'Delivered'; progress.style.width = '100%'; msg.innerText = 'Enjoy! Your order has arrived.'; setTimeout(() => { toggleOrderSheet(false); document.getElementById('checkout-btn').classList.remove('hidden'); document.getElementById('reward-status').parentElement.classList.remove('hidden'); document.getElementById('order-tracking').classList.add('hidden'); status.innerText = 'Preparing'; status.className = 'rounded-full bg-sky-100 px-3 py-1 text-[10px] font-bold text-sky-700'; progress.style.width = '15%'; }, 3000); }, 12000);
         }
-        function sendReaction(emoji){
-            const btn = event.currentTarget;
-            btn.classList.add('scale-125');
-            setTimeout(() => btn.classList.remove('scale-125'), 200);
-            
-            // Floating emoji animation
-            const floater = document.createElement('div');
-            floater.innerText = emoji;
-            floater.className = 'fixed bottom-40 right-10 z-[120] text-4xl pointer-events-none float-react';
-            document.body.appendChild(floater);
-            setTimeout(() => floater.remove(), 1500);
+        function sendReaction(emoji){const btn = event.currentTarget;btn.classList.add('scale-125');setTimeout(() => btn.classList.remove('scale-125'), 200);const floater = document.createElement('div');floater.innerText = emoji;floater.className = 'fixed bottom-40 right-10 z-[120] text-4xl pointer-events-none float-react';document.body.appendChild(floater);setTimeout(() => floater.remove(), 1500);}
+        function toggleSmartPath(){ const s = document.getElementById('best-route').innerText; drawRoute(s); }
+        function appendConversation(text,meta,tone){const bubble=document.createElement('div');bubble.className=tone==='user'?'ml-auto max-w-[85%] rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white':'max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white';bubble.innerHTML=`<p>${text}</p>${meta?`<p class="mt-2 text-[11px] uppercase tracking-[0.18em] ${tone==='user'?'text-slate-300':'text-sky-100'}">${meta}</p>`:''}`;const convo=document.getElementById('ai-conversation');convo.appendChild(bubble);convo.scrollTop=convo.scrollHeight; if(tone==='assistant') speak(text); }
+        function updateProfileUI(profile,routePlan,evaluation){
+            if(!profile || !routePlan) return;
+            document.getElementById('profile-name').value=profile.name;
+            document.getElementById('profile-seat-section').value=profile.seat_section;
+            document.getElementById('profile-preferred-gate').value=profile.preferred_gate;
+            document.getElementById('profile-food-preference').value=profile.food_preference;
+            document.getElementById('profile-accessibility-need').value=profile.accessibility_need;
+            document.getElementById('profile-ticket-type').value=profile.ticket_type;
+            document.getElementById('best-route').innerText=titleize(routePlan.best_gate);
+            document.getElementById('seat-summary').innerText=`Section ${profile.seat_section}`;
+            document.getElementById('accessible-route').innerText=routePlan.accessibility_route;
+            document.getElementById('impact-wait').innerText=evaluation.improvements.avg_wait_improvement_pct;
+            document.getElementById('ticket-summary').innerText=`${titleize(profile.ticket_type)} access active for Section ${profile.seat_section}.`;
+            document.getElementById('ticket-seat').innerText=`Section ${profile.seat_section} | ${profile.ticket_type==='vip'?'Express lane':'General lane'}`;
+            document.getElementById('ticket-tier').innerText=profile.ticket_type==='vip'?'VIP ACCESS':'GENERAL PASS';
+            document.getElementById('pickup-summary').innerText=`${routePlan.food_pickup} is active for your profile.`;
+            document.getElementById('ticket-pickup').innerText=routePlan.food_pickup;
+            document.getElementById('delivery-summary').innerText=`Delivering directly to Section ${profile.seat_section} in 5 to 8 minutes`
         }
-        function votePoll(option){
-            document.querySelectorAll('.poll-opt').forEach(btn => {
-                btn.onclick = null;
-                btn.classList.add('opacity-70'); // Dim other options
-            });
-            const selected = event.currentTarget;
-            selected.classList.remove('opacity-70');
-            selected.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500/20');
-            
-            // Show a "Voted" checkmark or just glow the bar
-            const bar = selected.querySelector('.poll-bar');
-            bar.classList.replace('bg-indigo-50', 'bg-indigo-100');
+        function applyScenarioMood(data){
+            const pass=document.getElementById('live-pass-card'),guide=document.getElementById('ai-guide-preview'),chat=document.getElementById('chat-header');
+            if(!pass || !guide || !chat) return;
+            pass.className='rounded-[2rem] p-5 shadow-sm';guide.className='rounded-[2rem] p-5';chat.className='flex items-center justify-between gap-4 px-4 py-3 text-white';
+            if(data.emergency_override||data.risk_level==='critical'){
+                pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.22),_rgba(249,115,22,0.18),_white_70%)]');
+                guide.classList.add('border','border-rose-300','bg-rose-50');
+                chat.classList.add('bg-gradient-to-r','from-rose-600','to-orange-600');
+                document.getElementById('live-pass-title').innerText='Critical routing is active';
+                document.getElementById('guide-title').innerText='Safety-first guidance'
+            }else if(data.scenario==='peak_rush'){
+                pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(251,191,36,0.2),_rgba(14,165,233,0.14),_white_70%)]');
+                guide.classList.add('border','border-amber-300','bg-amber-50');
+                chat.classList.add('bg-gradient-to-r','from-amber-500','to-orange-500');
+                document.getElementById('live-pass-title').innerText='Peak-rush route optimization';
+                document.getElementById('guide-title').innerText='Crowd balancing guidance'
+            }else{
+                pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.2),_rgba(34,197,94,0.16),_white_72%)]');
+                guide.classList.add('border','border-sky-200','bg-sky-50');
+                chat.classList.add('bg-gradient-to-r','from-sky-500','to-indigo-600');
+                document.getElementById('live-pass-title').innerText='Your best route right now';
+                document.getElementById('guide-title').innerText='One-tap guidance'
+            }
         }
-        function appendConversation(text,meta,tone){const bubble=document.createElement('div');bubble.className=tone==='user'?'ml-auto max-w-[85%] rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white':'max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white';bubble.innerHTML=`<p>${text}</p>${meta?`<p class="mt-2 text-[11px] uppercase tracking-[0.18em] ${tone==='user'?'text-slate-300':'text-sky-100'}">${meta}</p>`:''}`;const convo=document.getElementById('ai-conversation');convo.appendChild(bubble);convo.scrollTop=convo.scrollHeight}
-        function updateProfileUI(profile,routePlan,evaluation){document.getElementById('profile-name').value=profile.name;document.getElementById('profile-seat-section').value=profile.seat_section;document.getElementById('profile-preferred-gate').value=profile.preferred_gate;document.getElementById('profile-food-preference').value=profile.food_preference;document.getElementById('profile-accessibility-need').value=profile.accessibility_need;document.getElementById('profile-ticket-type').value=profile.ticket_type;document.getElementById('best-route').innerText=titleize(routePlan.best_gate);document.getElementById('seat-summary').innerText=`Section ${profile.seat_section}`;document.getElementById('accessible-route').innerText=routePlan.accessibility_route;document.getElementById('impact-wait').innerText=evaluation.improvements.avg_wait_improvement_pct;document.getElementById('ticket-summary').innerText=`${titleize(profile.ticket_type)} access active for Section ${profile.seat_section}.`;document.getElementById('ticket-seat').innerText=`Section ${profile.seat_section} | ${profile.ticket_type==='vip'?'Express lane':'General lane'}`;document.getElementById('ticket-tier').innerText=profile.ticket_type==='vip'?'VIP ACCESS':'GENERAL PASS';document.getElementById('pickup-summary').innerText=`${routePlan.food_pickup} is active for your profile.`;document.getElementById('ticket-pickup').innerText=routePlan.food_pickup;document.getElementById('delivery-summary').innerText=`Delivering directly to Section ${profile.seat_section} in 5 to 8 minutes`}
-        function applyScenarioMood(data){const pass=document.getElementById('live-pass-card'),guide=document.getElementById('ai-guide-preview'),chat=document.getElementById('chat-header');pass.className='rounded-[2rem] p-5 shadow-sm';guide.className='rounded-[2rem] p-5';chat.className='flex items-center justify-between gap-4 px-4 py-3 text-white';if(data.emergency_override||data.risk_level==='critical'){pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.22),_rgba(249,115,22,0.18),_white_70%)]');guide.classList.add('border','border-rose-300','bg-rose-50');chat.classList.add('bg-gradient-to-r','from-rose-600','to-orange-600');document.getElementById('live-pass-title').innerText='Critical routing is active';document.getElementById('guide-title').innerText='Safety-first guidance'}else if(data.scenario==='peak_rush'){pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(251,191,36,0.2),_rgba(14,165,233,0.14),_white_70%)]');guide.classList.add('border','border-amber-300','bg-amber-50');chat.classList.add('bg-gradient-to-r','from-amber-500','to-orange-500');document.getElementById('live-pass-title').innerText='Peak-rush route optimization';document.getElementById('guide-title').innerText='Crowd balancing guidance'}else{pass.classList.add('bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.2),_rgba(34,197,94,0.16),_white_72%)]');guide.classList.add('border','border-sky-200','bg-sky-50');chat.classList.add('bg-gradient-to-r','from-sky-500','to-indigo-600');document.getElementById('live-pass-title').innerText='Your best route right now';document.getElementById('guide-title').innerText='One-tap guidance'}}
         function updateCrowdDensity(evaluation){
             const density = evaluation.after_ai.max_zone_density;
             const circle = document.getElementById('density-circle');
+            if(!circle) return;
             const label = document.getElementById('density-label');
             const status = document.getElementById('density-status');
             const percent = document.getElementById('density-percent');
             const aura = document.getElementById('density-aura');
-            
             percent.innerText = density;
             circle.setAttribute('stroke-dasharray', `${density}, 100`);
-            
             if(density > 80){
-                label.innerText = 'Critical';
-                status.innerText = 'High Saturation';
+                label.innerText = 'Critical';status.innerText = 'High Saturation';
                 status.className = 'text-xs text-rose-500 font-bold uppercase tracking-tighter';
                 circle.className = 'stroke-current text-rose-500';
                 aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-rose-500/30 blur-3xl rounded-full pulse-glow';
             } else if(density > 50){
-                label.innerText = 'Moderate';
-                status.innerText = 'Expect Slow Flow';
+                label.innerText = 'Moderate';status.innerText = 'Expect Slow Flow';
                 status.className = 'text-xs text-amber-500 font-bold uppercase tracking-tighter';
                 circle.className = 'stroke-current text-amber-500';
                 aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/20 blur-3xl rounded-full';
             } else {
-                label.innerText = 'Optimal';
-                status.innerText = 'Safe & Free Flow';
+                label.innerText = 'Optimal';status.innerText = 'Safe & Free Flow';
                 status.className = 'text-xs text-emerald-400 font-bold uppercase tracking-tighter';
                 circle.className = 'stroke-current text-emerald-500';
                 aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/10 blur-3xl rounded-full';
             }
         }
-        function selectSection(name, price){
-            document.getElementById('booking-prompt').classList.add('hidden');
-            const details = document.getElementById('selection-details');
-            details.classList.remove('hidden');
-            document.getElementById('selected-name').innerText = name;
-            document.getElementById('selected-price').innerText = `$${price}`;
+        function selectSection(name, price){document.getElementById('booking-prompt').classList.add('hidden');const details = document.getElementById('selection-details');details.classList.remove('hidden');document.getElementById('selected-name').innerText = name;document.getElementById('selected-price').innerText = `₹${price * 10}`;document.querySelectorAll('g.cursor-pointer path').forEach(p => p.setAttribute('fill', '#cbd5e1'));}
+        function confirmBooking(){const name = document.getElementById('selected-name').innerText;alert(`Booking confirmed for ${name}!`);toggleTicket(true);}
+        function triggerSOS(){const confirmSOS = confirm("TRIGGER SOS?");if(confirmSOS){submitAIQuery("SOS EMERGENCY: I am at Section 112!");}}
+        const POI_DATA = {
+            'washroom': [[33.9535, -118.3405], [33.9525, -118.3380]],
+            'food': [[33.9540, -118.3415], [33.9528, -118.3395]],
+            'exit': [[33.9548, -118.3390], [33.9515, -118.3388]]
+        };
+        const activeMarkers = { 'washroom': [], 'food': [], 'exit': [] };
+
+        function togglePOI(type) {
+            const iconMap = { 'washroom': '🚻', 'food': '🍔', 'exit': '🚪' };
+            const btn = event.currentTarget;
             
-            // Highlight section on map (simplified)
-            document.querySelectorAll('g.cursor-pointer path').forEach(p => p.setAttribute('fill', '#cbd5e1'));
-            // Since we don't have IDs on the paths yet, we'll just show the details for now.
-        }
-        function confirmBooking(){
-            const name = document.getElementById('selected-name').innerText;
-            alert(`Booking confirmed for ${name}! Redirecting to your digital pass.`);
-            document.getElementById('ticket-tier').innerText = name.includes('VIP') ? 'VIP ACCESS' : 'GENERAL PASS';
-            document.getElementById('ticket-seat').innerText = `Section: ${name} | Seat: ${Math.floor(Math.random()*20)+1}`;
-            toggleTicket(true);
-        }
-        function triggerSOS(){
-            const confirmSOS = confirm("TRIGGER SOS? This will alert stadium security to your exact location.");
-            if(confirmSOS){
-                submitAIQuery("SOS EMERGENCY: I am at Section 112 and need immediate assistance!");
-                document.getElementById('ai-chatbox').classList.remove('hidden');
-                document.getElementById('ai-launcher').classList.add('hidden');
+            if (activeMarkers[type].length > 0) {
+                // Remove markers
+                activeMarkers[type].forEach(m => map.removeLayer(m));
+                activeMarkers[type] = [];
+                btn.classList.remove('bg-sky-100', 'border-sky-300');
+            } else {
+                // Add markers
+                POI_DATA[type].forEach(coords => {
+                    const m = L.marker(coords, {
+                        icon: L.divIcon({
+                            html: `<div class="flex items-center justify-center w-8 h-8 bg-white rounded-full shadow-lg border-2 border-sky-500 text-sm">${iconMap[type]}</div>`,
+                            className: '',
+                            iconSize: [32, 32]
+                        })
+                    }).addTo(map);
+                    activeMarkers[type].push(m);
+                });
+                btn.classList.add('bg-sky-100', 'border-sky-300');
             }
         }
-        function togglePOI(type){
-            const el = document.getElementById(`${type}-markers`);
-            if(el) el.classList.toggle('hidden');
-            // Visual feedback on button (simplified)
-            if(event) {
-                event.target.classList.toggle('bg-sky-100');
-                event.target.classList.toggle('border-sky-300');
-            }
-        }
-        function toggleSmartPath(){
-            const path = document.getElementById('smart-path-overlay');
-            if(path) path.classList.toggle('hidden');
-            // Visual feedback on button
-            if(event) event.target.classList.toggle('bg-emerald-200');
-        }
-        function votePoll(opt){
-            // Reveal result text
-            document.querySelectorAll('.poll-pct').forEach(p => p.classList.remove('hidden'));
-            // Animate bars
-            document.querySelectorAll('.poll-bar').forEach(b => b.classList.remove('scale-x-0'));
-            // Disable further voting
-            document.querySelectorAll('.poll-opt').forEach(b => {
-                b.onclick = null;
-                b.classList.remove('hover:border-indigo-300');
-                if(!b.innerHTML.includes(opt)) b.classList.add('opacity-50');
-            });
-        }
+        function votePoll(opt){document.querySelectorAll('.poll-pct').forEach(p => p.classList.remove('hidden'));document.querySelectorAll('.poll-bar').forEach(b => b.classList.remove('scale-x-0'));document.querySelectorAll('.poll-opt').forEach(b => {b.onclick = null;b.classList.remove('hover:border-indigo-300');if(!b.innerHTML.includes(opt)) b.classList.add('opacity-50');});}
         function renderTelemetry(data){
-            document.getElementById('scenario-pill').innerText=titleize(data.scenario);
+            if(!data) return;
+            const pill = document.getElementById('scenario-pill');
+            if(pill) pill.innerText=titleize(data.scenario);
             renderQueues(data.wait_times_minutes);
             renderBounties(data.gamification.bounties);
             updateProfileUI(data.personalization,data.route_plan,data.evaluation);
             updateCrowdDensity(data.evaluation);
-            document.getElementById('map-service-note').innerText=data.google_services.join(' + ');
-            document.getElementById('impact-copy').innerText=`${data.evaluation.improvements.reroute_gain_pct}% reroute gain in this scenario`;
+            updateHeatmap(data.evaluation.after_ai.max_zone_density);
+            const note = document.getElementById('map-service-note');
+            if(note) note.innerText=data.google_services.join(' + ');
+            const impact = document.getElementById('impact-copy');
+            if(impact) impact.innerText=`${data.evaluation.improvements.reroute_gain_pct}% reroute gain`;
             applyScenarioMood(data);
-            
-            // Dynamic Match Info
             if(data.match_info){
-                document.getElementById('match-score').innerText = data.match_info.score;
-                document.getElementById('match-time').innerText = data.match_info.time;
+                const score = document.getElementById('match-score');
+                const time = document.getElementById('match-time');
+                if(score) score.innerText = data.match_info.score;
+                if(time) time.innerText = data.match_info.time;
             }
-
             const firstAlert=data.alerts[0];
             if(firstAlert){
-                document.getElementById('guide-preview-chat').innerText=firstAlert.msg;
-                document.getElementById('guide-preview-reason').innerText=firstAlert.reasoning
+                const previewChat = document.getElementById('guide-preview-chat');
+                const previewReason = document.getElementById('guide-preview-reason');
+                if(previewChat) previewChat.innerText=firstAlert.msg;
+                if(previewReason) previewReason.innerText=firstAlert.reasoning
             }
-            
-            if(data.emergency_override){
-                document.getElementById('emergency-overlay').classList.remove('hidden');
-                document.getElementById('emergency-route').innerText=data.route_plan.best_gate.replace('_',' ').toUpperCase()+' TO SAFE EXIT'
-            }else{
-                document.getElementById('emergency-overlay').classList.add('hidden')
+            if(data.weather){
+                const temp = document.getElementById('weather-temp');
+                const cond = document.getElementById('weather-cond');
+                const icon = document.getElementById('weather-icon');
+                if(temp) temp.innerText = data.weather.temp;
+                if(cond) cond.innerText = data.weather.condition;
+                if(icon) icon.innerText = data.weather.icon;
             }
-            
-            const hotspot=document.getElementById('map-hotspot');
-            hotspot.className=data.risk_level==='critical'?'absolute left-[42%] top-[30%] h-8 w-8 rounded-full bg-rose-500/60 blur-sm animate-ping':data.scenario==='peak_rush'?'absolute left-[48%] top-[34%] h-7 w-7 rounded-full bg-amber-500/55 blur-sm animate-ping':'absolute left-[50%] top-[38%] h-6 w-6 -translate-x-1/2 rounded-full bg-sky-500/45 blur-sm animate-ping'
+            const overlay = document.getElementById('emergency-overlay');
+            if(overlay){
+                if(data.emergency_override){
+                    overlay.classList.remove('hidden');
+                    document.getElementById('emergency-route').innerText=data.route_plan.best_gate.replace('_',' ').toUpperCase()+' TO SAFE EXIT'
+                }else{
+                    overlay.classList.add('hidden')
+                }
+            }
         }
-        async function saveProfile(){const response=await fetch('/api/v1/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(profilePayload())});const result=await response.json();updateProfileUI(result.profile,{best_gate:result.profile.preferred_gate,accessibility_route:result.profile.accessibility_need==='none'?'Use the shortest marked path through Gate C toward your seat.':'Use the low-slope East Hall corridor with elevator access.',food_pickup:result.profile.ticket_type==='vip'?'Suite lane pickup':'Express cart near Concourse A'},{improvements:{avg_wait_improvement_pct:document.getElementById('impact-wait').innerText||0}});switchTab('home')}
-        async function submitAIQuery(query){const trimmed=(query||'').trim();if(!trimmed)return;toggleChat(true);document.getElementById('voice-text-input').value='';appendConversation(trimmed,'Fan query','user');const response=await fetch('/api/v1/ask_ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:trimmed,profile:profilePayload()})});const result=await response.json();const ai=result.response;appendConversation(ai.narrative||ai.message,`${ai.provider} | ${ai.reasoning}`,'assistant');document.getElementById('ai-provider').innerText=ai.provider;document.getElementById('guide-preview-chat').innerText=ai.message;document.getElementById('guide-preview-reason').innerText=ai.reasoning;if(result.stadium_state.route_plan){document.getElementById('best-route').innerText=titleize(result.stadium_state.route_plan.best_gate)}}
+        async function saveProfile(){const response=await fetch('/api/v1/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(profilePayload())});const result=await response.json();updateProfileUI(result.profile,result.profile,{improvements:{avg_wait_improvement_pct:0}});switchTab('home')}
+        async function submitAIQuery(query){const trimmed=(query||'').trim();if(!trimmed)return;toggleChat(true);document.getElementById('voice-text-input').value='';appendConversation(trimmed,'Fan query','user');const response=await fetch('/api/v1/ask_ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:trimmed,profile:profilePayload()})});const result=await response.json();const ai=result.response;appendConversation(ai.narrative||ai.message,`${ai.provider}`,'assistant');if(result.stadium_state.route_plan){const best = result.stadium_state.route_plan.best_gate;document.getElementById('best-route').innerText=titleize(best);drawRoute(best);}}
         async function loadConfig(){
             const response=await fetch('/api/v1/config');
             const result=await response.json();
-            
             if(result.match_info){
                 document.getElementById('match-teams').innerText = result.match_info.teams;
                 document.getElementById('match-score').innerText = result.match_info.score;
@@ -659,10 +737,23 @@
                 document.getElementById('weather-cond').innerText = result.weather.condition;
                 document.getElementById('weather-icon').innerText = result.weather.icon;
             }
-            
-            updateProfileUI(result.profile,{best_gate:result.profile.preferred_gate,accessibility_route:result.profile.accessibility_need==='none'?'Use the shortest marked path through Gate C toward Section 112.':'Use the low-slope East Hall corridor with elevator access.',food_pickup:result.profile.ticket_type==='vip'?'Suite lane pickup':'Express cart near Concourse A'},{improvements:{avg_wait_improvement_pct:0}});document.getElementById('ai-provider').innerText=result.llm_enabled?'Gemini + Rules':'Rules';updatePointsUI();updateCheckoutTotal()}
-        function connectWebSocket(){if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;reconnecting=false;ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/data`);ws.onmessage=(event)=>renderTelemetry(JSON.parse(event.data));ws.onopen=()=>{if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}document.getElementById('offline-banner').classList.add('hidden');document.getElementById('main-header').classList.remove('opacity-60');document.getElementById('live-indicator').innerText='Live Sync Active'};const scheduleReconnect=()=>{if(reconnecting)return;reconnecting=true;document.getElementById('offline-banner').classList.remove('hidden');document.getElementById('main-header').classList.add('opacity-60');document.getElementById('live-indicator').innerText='Offline Fallback';reconnectTimer=setTimeout(()=>{reconnectTimer=null;connectWebSocket()},5000)};ws.onerror=scheduleReconnect;ws.onclose=scheduleReconnect}
-        document.addEventListener('DOMContentLoaded',async()=>{await loadConfig();switchTab('home');document.getElementById('voice-text-input').addEventListener('keydown',(event)=>{if(event.key==='Enter')submitAIQuery(event.target.value)});connectWebSocket()})
+            if(result.stadium_state && result.stadium_state.wait_times_minutes) {
+                renderQueues(result.stadium_state.wait_times_minutes);
+            }
+            const initialRoute = {
+                best_gate: result.profile.preferred_gate || 'gate_c',
+                accessibility_route: result.profile.accessibility_need === 'none' ? 'Standard optimized path' : 'Wheelchair friendly corridor',
+                food_pickup: 'General pickup'
+            };
+            const initialImpact = {
+                improvements: { avg_wait_improvement_pct: 43 } 
+            };
+            updateProfileUI(result.profile, initialRoute, initialImpact);
+            updatePointsUI();
+            updateCheckoutTotal()
+        }
+        function connectWebSocket(){if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;reconnecting=false;ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/data`);ws.onmessage=(event)=>renderTelemetry(JSON.parse(event.data));ws.onopen=()=>{document.getElementById('offline-banner').classList.add('hidden');document.getElementById('main-header').classList.remove('opacity-60');document.getElementById('live-indicator').innerText='Live Sync Active'};const scheduleReconnect=()=>{if(reconnecting)return;reconnecting=true;document.getElementById('offline-banner').classList.remove('hidden');document.getElementById('main-header').classList.add('opacity-60');document.getElementById('live-indicator').innerText='Offline Fallback';reconnectTimer=setTimeout(()=>{reconnectTimer=null;connectWebSocket()},5000)};ws.onerror=scheduleReconnect;ws.onclose=scheduleReconnect}
+        document.addEventListener('DOMContentLoaded',async()=>{await loadConfig();initMap();switchTab('home');renderMenu('all');document.getElementById('voice-text-input').addEventListener('keydown',(event)=>{if(event.key==='Enter')submitAIQuery(event.target.value)});connectWebSocket()})
     </script>
 </body>
 </html>

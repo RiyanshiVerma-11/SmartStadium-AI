@@ -2,6 +2,9 @@ import asyncio
 import json
 import os
 import time
+from dotenv import load_dotenv
+
+load_dotenv()
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -745,6 +748,19 @@ def build_snapshot() -> dict[str, Any]:
     score = "2 - 1"
     if dynamic_time > 85 and match_tick % 10 == 0: score = "3 - 1" # Goal simulation
 
+    # Dynamic Weather Simulation
+    weather_map = {
+        "normal": {"temp": 24, "cond": "Clear Sky", "icon": "☀️"},
+        "peak_rush": {"temp": 26, "cond": "Sunny", "icon": "☀️"},
+        "suspicious_object": {"temp": 23, "cond": "Overcast", "icon": "☁️"},
+        "network_outage": {"temp": 22, "cond": "Partly Cloudy", "icon": "⛅"},
+        "medical_emergency": {"temp": 24, "cond": "Clear", "icon": "☀️"},
+        "extreme_weather": {"temp": 18, "cond": "Thunderstorm", "icon": "⛈️"}
+    }
+    w = weather_map.get(scenario_key, {"temp": 24, "cond": "Clear Sky", "icon": "☀️"})
+    # Add a slight variation based on tick
+    varied_temp = w["temp"] + (1 if GLOBAL_STATE["tick"] % 15 > 7 else 0)
+
     return {
         "timestamp": int(time.time()),
         "scenario": scenario_key,
@@ -767,6 +783,11 @@ def build_snapshot() -> dict[str, Any]:
         "personalization": profile,
         "route_plan": personalized_route,
         "match_info": {"teams": "Lions vs Tigers", "score": score, "time": f"{dynamic_time}'"},
+        "weather": {
+            "temp": f"{varied_temp}°C",
+            "condition": w["cond"],
+            "icon": w["icon"]
+        }
     }
 
 
@@ -840,6 +861,9 @@ async def get_config():
             }
             for key, value in SCENARIO_LIBRARY.items()
         ],
+        "stadium_state": {
+            "wait_times_minutes": build_snapshot()["wait_times_minutes"]
+        },
         "profile": GLOBAL_STATE["current_profile"],
         "llm_enabled": bool(get_decision_engine().narrator and get_decision_engine().narrator.enabled),
         "match_info": {
