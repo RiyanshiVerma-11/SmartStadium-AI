@@ -117,10 +117,10 @@
                     <p class="text-sm text-slate-400">We've sent a 4-digit code to your device</p>
                 </div>
                 <div class="flex justify-center gap-4" role="group" aria-label="4-digit verification code">
-                    <input id="otp-1" type="text" maxlength="1" aria-label="Digit 1" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
-                    <input id="otp-2" type="text" maxlength="1" aria-label="Digit 2" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
-                    <input id="otp-3" type="text" maxlength="1" aria-label="Digit 3" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
-                    <input id="otp-4" type="text" maxlength="1" aria-label="Digit 4" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
+                    <input id="otp-1" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 1" autocomplete="one-time-code" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
+                    <input id="otp-2" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 2" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
+                    <input id="otp-3" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 3" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
+                    <input id="otp-4" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 4" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
                 </div>
                 <button onclick="validateOTP()" class="w-full py-4 rounded-2xl bg-blue-600 font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all">
                     Verify & Continue

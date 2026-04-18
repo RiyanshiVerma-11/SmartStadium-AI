@@ -2,8 +2,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
-app/data/
-*.db
+app/data/__pycache__/
+app/data/*.db
 .env
 .venv/
 venv/
