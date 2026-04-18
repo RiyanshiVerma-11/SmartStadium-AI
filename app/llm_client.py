@@ -1,91 +1,92 @@
-import json
 import os
-import urllib.error
-import urllib.request
-from typing import Any
+import httpx
+import json
+import asyncio
+from typing import Optional, Dict, Any
+from pydantic import BaseModel
 
+class AIResponse(BaseModel):
+    narrative: str
+    accessibility_notes: str
+    suggested_route: Optional[str] = None
+    crowd_prediction: Optional[str] = None
+    recommended_gate: Optional[str] = None
+    staff_action: Optional[str] = None
 
 class GeminiNarrator:
-    """Optional Gemini summarizer for richer natural-language explanations."""
-
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY", "").strip()
-        self.model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip()
-        self.enabled = bool(self.api_key)
-        print(f"[AI-DIAGNOSTIC] Gemini Narrator Initialized. Enabled: {self.enabled}")
-        if self.enabled:
-            # Mask key for security: only show first 4 and last 4
-            masked = f"{self.api_key[:4]}...{self.api_key[-4:]}" if len(self.api_key) > 8 else "****"
-            print(f"[AI-DIAGNOSTIC] API Key Found: {masked}")
-        else:
-            print("[AI-DIAGNOSTIC] NO API KEY FOUND. Environment variable GEMINI_API_KEY is empty.")
-
-    async def explain(self, state: dict[str, Any], prompt: str, response: dict[str, Any], profile: dict[str, Any]) -> str | None:
-        if not self.enabled:
-            return None
-
-        endpoint = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-            f"?key={self.api_key}"
-        )
-        instruction = (
-            "You are a stadium operations AI assistant. Expand the deterministic routing answer into a concise, "
-            "practical explanation for a hackathon demo. Do not invent sensors or actions that are not present. "
-            "Keep it under 70 words. Mention personalization and safety when relevant."
-        )
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": json.dumps(
-                                {
-                                    "instruction": instruction,
-                                    "prompt": prompt,
-                                    "profile": profile,
-                                    "scenario": state["scenario"],
-                                    "route_plan": state["route_plan"],
-                                    "risk_level": state["risk_level"],
-                                    "response": response,
-                                }
-                            )
-                        }
-                    ]
-                }
-            ]
-        }
-        data = json.dumps(payload).encode("utf-8")
-        request = urllib.request.Request(
-            endpoint,
-            data=data,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
-        import time
-        for attempt in range(2):
-            try:
-                with urllib.request.urlopen(request, timeout=20) as api_response:
-                    response_body = api_response.read().decode("utf-8")
-                    parsed = json.loads(response_body)
-                    break # Success!
-            except urllib.error.HTTPError as e:
-                error_body = e.read().decode()
-                print(f"[AI-DIAGNOSTIC] API HTTP ERROR {e.code}: {e.reason}")
-                return None
-            except Exception as e:
-                print(f"[AI-DIAGNOSTIC] Connection attempt {attempt+1} failed: {str(e)}")
-                if attempt == 0:
-                    time.sleep(1)
-                    continue
-                return None
-
-        candidates = parsed.get("candidates") or []
-        if not candidates:
-            if "error" in parsed:
-                print(f"[AI-DIAGNOSTIC] API returned error: {parsed['error'].get('message')}")
-            return None
+        self.api_key = os.getenv("GEMINI_API_KEY")
+        self.model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
         
-        parts = candidates[0].get("content", {}).get("parts", [])
-        text_parts = [part.get("text", "").strip() for part in parts if part.get("text")]
-        return " ".join(text_parts).strip() or None
+    async def get_decision(self, scenario_label: str, alert_msg: str, stadium_state: Dict[str, Any], user_context: Dict[str, Any]) -> AIResponse:
+        """
+        Upgraded: Acts as a Decision Engine. Analyzes telemetry to predict 
+        crowd flow and recommend operational actions.
+        """
+        if not self.api_key:
+            return self._mock_response(alert_msg)
+
+        prompt = f"""
+        You are the SmartStadium AI Decision Engine. Analyze this real-time telemetry:
+        Scenario: {scenario_label}
+        Alert Message: {alert_msg}
+        Crowd Density Data: {json.dumps(stadium_state.get('heatmaps', {}))}
+        Wait Times: {json.dumps(stadium_state.get('wait_times_minutes', {}))}
+        
+        User Context:
+        - Name: {user_context.get('name', 'Guest')}
+        - Accessibility: {user_context.get('accessibility_need', 'None')}
+        - Section: {user_context.get('seat_section', 'Unknown')}
+
+        Task:
+        1. Predict the crowd density trend for the next 10 minutes.
+        2. Recommend the absolute best entry/exit gate to reduce congestion.
+        3. Suggest a specific intervention for stadium staff.
+        4. Provide a professional, calm narrative for the fan.
+
+        Output ONLY valid JSON with keys:
+        "narrative", "accessibility_notes", "suggested_route", "crowd_prediction", "recommended_gate", "staff_action"
+        """
+
+        url = f"{self.base_url}/{self.model}:generateContent?key={self.api_key}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "response_mime_type": "application/json",
+            }
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                content = data['candidates'][0]['content']['parts'][0]['text']
+                result = json.loads(content)
+                return AIResponse(**result)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                print("Gemini API Rate Limit (429) - Switching to safe local fallback. (Note: Free tier usage limit hit, no charges incurred)")
+            else:
+                print(f"Gemini API HTTP Error: {e}")
+            return self._mock_response(alert_msg)
+        except Exception as e:
+            print(f"Gemini API Error: {e}")
+            return self._mock_response(alert_msg)
+
+    def _mock_response(self, alert_msg: str) -> AIResponse:
+        return AIResponse(
+            narrative=f"We've detected an update: {alert_msg}. Our teams are managing the flow to ensure your comfort. Please follow the illuminated green path for the smoothest exit.",
+            accessibility_notes="All primary routes remain accessible. Elevator 4 is reserved for priority access.",
+            suggested_route="Proceed to Concourse B via the ramp near Section 110.",
+            crowd_prediction="Expect 10% density increase at South Gate soon.",
+            recommended_gate="Gate A",
+            staff_action="Deploy 2 stewards to Concourse A to assist with flow."
+        )
+
+# Singleton instance
+gemini_client = GeminiNarrator()

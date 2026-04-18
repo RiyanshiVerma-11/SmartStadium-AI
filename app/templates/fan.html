@@ -2,9 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>Fan Portal | SmartStadium AI</title>
+    <meta name="description" content="Access real-time stadium telemetry, interactive maps, and AI-powered routing for a seamless fan experience.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StadiumFlow Fan Companion</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <!-- Google Maps JS API (Requires API key) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=visualization,places"></script>
     <style>
         :root { --bg: linear-gradient(180deg, #eef6ff 0%, #fff7ed 100%); --panel: rgba(255,255,255,.9); --text:#0f172a; --muted:#64748b; }
         .dark-mode { --bg: linear-gradient(180deg, #09101d 0%, #131c31 100%); --panel: rgba(15,23,42,.9); --text:#e2e8f0; --muted:#94a3b8; }
@@ -12,29 +17,19 @@
         .glass { background: var(--panel); backdrop-filter: blur(16px); }
         .tab-panel { display: none; }
         .tab-panel.active { display: block; }
-        .chat-shell { box-shadow: 0 24px 60px rgba(15,23,42,.24); }
-        .slide-up { animation: slideUp .25s ease-out forwards; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .float-react { animation: floatUp 1.5s ease-out forwards; }
-        @keyframes floatUp { 
-            0% { transform: translateY(0) scale(1); opacity: 1; } 
-            100% { transform: translateY(-100px) scale(1.5); opacity: 0; } 
-        }
-        .pulse-glow { animation: pulseGlow 2s infinite; }
-        @keyframes pulseGlow {
-            0%, 100% { opacity: 0.2; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(1.1); }
-        }
-        #leaflet-map { height: 420px; width: 100%; border-radius: 1.75rem; z-index: 10; }
-        .leaflet-container { background: #f8fafc; font-family: inherit; }
+        #google-map-container { height: 420px; width: 100%; border-radius: 1.75rem; z-index: 10; }
     </style>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 </head>
 <body class="min-h-screen">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999] focus:bg-sky-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-xl focus:font-bold">Skip to main content</a>
     <div id="offline-banner" class="hidden sticky top-0 z-50 bg-amber-500 px-4 py-3 text-center text-sm font-bold text-white">Low network signal detected. Cached routes and offline guidance are active.</div>
-    <div id="emergency-overlay" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-red-700/95 p-6 text-center text-white">
+    <div
+        id="emergency-overlay"
+        class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-red-700/95 p-6 text-center text-white"
+        role="alert"
+        aria-live="assertive"
+        aria-atomic="true"
+    >
         <div class="max-w-lg rounded-[2rem] border border-white/25 bg-white/10 p-8 backdrop-blur">
             <p class="text-xs font-bold uppercase tracking-[0.35em]">Emergency Override</p>
             <h1 class="mt-3 text-5xl font-black">Evacuate</h1>
@@ -62,6 +57,10 @@
                         <div class="rounded-[1.3rem] bg-slate-50 p-3 dark-mode:bg-slate-900"><p class="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-600">🚀 Benefit</p><p class="mt-2 text-sm" style="color:var(--muted)">Fast-track gate access</p></div>
                         <div class="rounded-[1.3rem] bg-slate-50 p-3 dark-mode:bg-slate-900"><p class="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-600">🍔 Pickup</p><p id="ticket-pickup" class="mt-2 text-sm" style="color:var(--muted)">Suite lane concessions</p></div>
                     </div>
+                    <button onclick="saveToGoogleWallet(event)" class="mt-5 w-full rounded-2xl bg-black py-4 flex items-center justify-center gap-3 text-white transition-all hover:bg-slate-900 active:scale-95 shadow-xl">
+                        <img src="https://www.gstatic.com/images/branding/product/1x/wallet_48dp.png" class="w-6 h-6" alt="">
+                        <span class="text-sm font-bold">Save to Google Wallet</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -73,10 +72,10 @@
             
             <!-- Category Filter -->
             <div class="mt-5 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                <button onclick="filterMenu('all')" class="food-cat-btn flex-shrink-0 rounded-2xl bg-slate-900 px-4 py-2 text-xs font-bold text-white">All</button>
-                <button onclick="filterMenu('meals')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Meals</button>
-                <button onclick="filterMenu('snacks')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Snacks</button>
-                <button onclick="filterMenu('drinks')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Drinks</button>
+                <button onclick="filterMenu(event, 'all')" class="food-cat-btn flex-shrink-0 rounded-2xl bg-slate-900 px-4 py-2 text-xs font-bold text-white">All</button>
+                <button onclick="filterMenu(event, 'meals')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Meals</button>
+                <button onclick="filterMenu(event, 'snacks')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Snacks</button>
+                <button onclick="filterMenu(event, 'drinks')" class="food-cat-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700">Drinks</button>
             </div>
 
             <div id="concessions-menu" class="mt-5 max-h-[40vh] space-y-3 overflow-y-auto">
@@ -107,13 +106,23 @@
         </div>
     </div>
     <div class="mx-auto flex min-h-screen max-w-md flex-col overflow-hidden bg-white shadow-2xl shadow-slate-300/60 dark-mode:bg-slate-950">
-        <header id="main-header" class="glass sticky top-0 z-40 border-b border-slate-200 px-5 py-4">
+    <header id="main-header" class="glass sticky top-0 z-40 border-b border-slate-200 px-5 py-4" role="banner">
             <div class="flex items-center justify-between gap-4">
-                <div><a href="/" class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">Back</a><h1 class="mt-2 text-2xl font-black">StadiumFlow</h1><p id="live-indicator" class="mt-1 text-xs font-bold uppercase tracking-[0.28em] text-emerald-600">Live Sync Active</p></div>
-                <div class="rounded-3xl bg-slate-950 px-4 py-2 text-white"><p class="text-[10px] uppercase tracking-[0.28em] text-slate-400">Flow Points</p><p class="text-lg font-black"><span id="flow-points">240</span> PTR</p></div>
+                <div>
+                    <a href="/" class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)" aria-label="Go back to landing page">Back</a>
+                    <h1 class="mt-2 text-2xl font-black">StadiumFlow</h1>
+                    <p id="live-indicator" class="mt-1 text-xs font-bold uppercase tracking-[0.28em] text-emerald-600" aria-live="polite">Live Sync Active</p>
+                </div>
+                <div class="flex items-center gap-3 rounded-2xl bg-slate-950 px-4 py-2 text-white shadow-lg">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/cloud_64dp.png" class="w-4 h-4" alt="">
+                    <div>
+                        <p class="text-[9px] font-bold uppercase tracking-[0.24em] text-slate-400">Flow Points</p>
+                        <p class="text-sm font-black"><span id="flow-points">240</span> <span class="text-[10px] font-bold text-slate-400">PTR</span></p>
+                    </div>
+                </div>
             </div>
         </header>
-        <main class="relative flex-1 overflow-y-auto px-5 pb-28 pt-5">
+        <main id="main-content" class="relative flex-1 overflow-y-auto px-5 pb-28 pt-5" role="main">
             <section id="tab-map" class="tab-panel space-y-5">
                 <div class="rounded-[2rem] border border-slate-200 p-5">
                     <div class="flex items-center justify-between gap-4">
@@ -130,14 +139,25 @@
                         <button onclick="togglePOI('food')" class="poi-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm active:bg-sky-50 transition-colors">🍔 Food Stalls</button>
                         <button onclick="togglePOI('exit')" class="poi-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm active:bg-sky-50 transition-colors">🚪 Exits</button>
                         <button onclick="toggleSmartPath()" class="poi-btn flex-shrink-0 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm transition-colors">✨ Crowd-Free Path</button>
+                        <div id="google_translate_element" class="flex-shrink-0"></div>
+                        <button onclick="openGoogleLiveView()" class="poi-btn flex-shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition-colors flex items-center gap-2">
+                            <img src="https://www.gstatic.com/images/branding/product/1x/maps_48dp.png" class="w-4 h-4" alt="">
+                            Live Satellite
+                        </button>
                     </div>
 
-                    <div class="relative mt-4 overflow-hidden rounded-[1.75rem] border border-slate-200 shadow-inner">
-                        <div id="leaflet-map"></div>
-                        
-                        <!-- Smart Overlays (Legacy fallback or info) -->
+                    <div class="relative mt-4 overflow-hidden rounded-[1.75rem] border border-slate-200 shadow-inner" role="application" aria-label="Stadium wayfinding map">
+                        <div
+                            id="google-map-container"
+                            tabindex="0"
+                            role="application"
+                            aria-label="Interactive venue map — use arrow keys to pan, plus and minus to zoom"
+                            class="h-96 w-full"
+                        ></div>
+                        <noscript>
+                            <div class="p-6 text-center text-sm text-slate-600 bg-slate-50">JavaScript is required to render the live Google Maps map. Please enable JavaScript for the best experience.</div>
+                        </noscript>
                         <div id="map-interaction-overlay" class="pointer-events-none absolute inset-0 z-20">
-                            <!-- Hotspot (Now integrated in Leaflet, but keeping for flair) -->
                             <div id="map-hotspot" class="absolute left-[50%] top-[38%] h-6 w-6 -translate-x-1/2 rounded-full bg-sky-500/35 blur-sm animate-ping hidden"></div>
                         </div>
                     </div>
@@ -153,7 +173,7 @@
             <section id="tab-home" class="tab-panel active space-y-5">
                 <!-- Match & Weather Hub -->
                 <div class="grid grid-cols-2 gap-3">
-                    <div class="rounded-[2rem] bg-gradient-to-br from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
+                    <div class="rounded-[2rem] bg-gradient-to-br from-indigo-600 to-blue-700 p-5 text-white shadow-lg relative overflow-hidden group">
                         <div class="flex items-center justify-between opacity-80 text-[10px] font-bold uppercase tracking-widest">
                             <span>Live Match</span>
                             <span class="animate-pulse text-rose-400">● Live</span>
@@ -165,6 +185,10 @@
                                 <span id="match-time" class="text-sm font-bold opacity-80">72'</span>
                             </div>
                         </div>
+                        <button onclick="addToCalendar()" class="mt-4 w-full rounded-xl bg-white/20 py-2 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/30 transition-all flex items-center justify-center gap-2">
+                            <img src="https://www.gstatic.com/images/branding/product/1x/calendar_48dp.png" class="w-4 h-4" alt="">
+                            Add to Calendar
+                        </button>
                     </div>
                     <div class="rounded-[2rem] bg-gradient-to-br from-amber-300 via-orange-400 to-amber-600 p-6 text-white shadow-lg shadow-amber-200/50 flex flex-col justify-between overflow-hidden relative group">
                         <!-- Subtle sun ray effect -->
@@ -246,6 +270,10 @@
                 </div>
                 <div id="ai-guide-preview" class="rounded-[2rem] p-5">
                     <div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.28em] text-sky-600">🤖 Live AI Guide</p><h2 id="guide-title" class="mt-2 text-xl font-black">One-tap guidance</h2></div><span id="ai-provider" class="rounded-full bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">Rules</span></div>
+                    <div id="ai-prediction-bar" class="mt-4 hidden rounded-2xl bg-indigo-600 p-4 text-white shadow-lg">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-80">Crowd Prediction (Next 10m)</p>
+                        <p id="ai-prediction-text" class="mt-1 text-sm font-black">Analyzing trends...</p>
+                    </div>
                     <p id="guide-preview-chat" class="mt-4 text-sm font-semibold leading-6">Crowd flow looks stable. Ask for the best gate, shortest line, or help in an emergency.</p>
                     <p id="guide-preview-reason" class="mt-2 text-[11px] uppercase tracking-[0.18em]" style="color:var(--muted)">AI guidance will use your saved fan profile.</p>
                     <div class="mt-4 grid grid-cols-2 gap-2">
@@ -358,25 +386,123 @@
                 </div>
             </section>
             <section id="tab-profile" class="tab-panel space-y-5">
-                <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">👤 Profile</p><h2 class="mt-2 text-2xl font-black">Personalize your experience</h2></div><span class="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.26em] text-slate-500">Saved Live</span></div><div class="mt-4 grid gap-3 text-sm"><input id="profile-name" class="w-full rounded-2xl border border-slate-200 px-4 py-3" value="Guest 112"><input id="profile-seat-section" class="w-full rounded-2xl border border-slate-200 px-4 py-3" value="112"><select id="profile-preferred-gate" class="w-full rounded-2xl border border-slate-200 px-4 py-3"><option value="gate_a">Gate A</option><option value="gate_b">Gate B</option><option value="gate_c" selected>Gate C</option></select><select id="profile-food-preference" class="w-full rounded-2xl border border-slate-200 px-4 py-3"><option value="vegetarian" selected>Vegetarian</option><option value="classic">Classic Stadium Food</option><option value="vegan">Vegan</option><option value="halal">Halal</option></select><select id="profile-accessibility-need" class="w-full rounded-2xl border border-slate-200 px-4 py-3"><option value="none" selected>None</option><option value="wheelchair">Wheelchair</option><option value="low_vision">Low vision</option><option value="hearing_support">Hearing support</option></select><select id="profile-ticket-type" class="w-full rounded-2xl border border-slate-200 px-4 py-3"><option value="vip" selected>VIP</option><option value="general">General</option></select></div><div class="mt-5 rounded-[1.8rem] bg-gradient-to-r from-emerald-100 via-sky-100 to-white p-4"><div class="flex items-center justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.24em] text-slate-600">🌗 Theme</p><p class="mt-2 text-sm" style="color:var(--muted)">Switch between bright demo mode and darker arena mode.</p></div><button id="theme-toggle" onclick="toggleTheme()" class="rounded-full bg-slate-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-white">Arena Mode</button></div></div><button onclick="saveProfile()" class="mt-5 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Save Personalized Experience</button></div>
+                <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-[0.28em]" style="color:var(--muted)">👤 Profile</p>
+                            <h2 class="mt-2 text-2xl font-black">Personalize your experience</h2>
+                        </div>
+                        <span class="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.26em] text-slate-500">Saved Live</span>
+                    </div>
+                    <div class="mt-4 grid gap-3 text-sm">
+                        <div>
+                            <label for="profile-name" class="sr-only">Display Name</label>
+                            <input id="profile-name" class="w-full rounded-2xl border border-slate-200 px-4 py-3" placeholder="Display Name" value="Guest 112">
+                        </div>
+                        <div>
+                            <label for="profile-seat-section" class="sr-only">Seat Section</label>
+                            <input id="profile-seat-section" class="w-full rounded-2xl border border-slate-200 px-4 py-3" placeholder="Seat Section" value="112">
+                        </div>
+                        <div>
+                            <label for="profile-preferred-gate" class="sr-only">Preferred Gate</label>
+                            <select id="profile-preferred-gate" class="w-full rounded-2xl border border-slate-200 px-4 py-3">
+                                <option value="gate_a">Gate A</option>
+                                <option value="gate_b">Gate B</option>
+                                <option value="gate_c" selected>Gate C</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="profile-food-preference" class="sr-only">Food Preference</label>
+                            <select id="profile-food-preference" class="w-full rounded-2xl border border-slate-200 px-4 py-3">
+                                <option value="vegetarian" selected>Vegetarian</option>
+                                <option value="classic">Classic Stadium Food</option>
+                                <option value="vegan">Vegan</option>
+                                <option value="halal">Halal</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="profile-accessibility-need" class="sr-only">Accessibility Need</label>
+                            <select id="profile-accessibility-need" class="w-full rounded-2xl border border-slate-200 px-4 py-3">
+                                <option value="none" selected>None</option>
+                                <option value="wheelchair">Wheelchair</option>
+                                <option value="low_vision">Low vision</option>
+                                <option value="hearing_support">Hearing support</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="profile-ticket-type" class="sr-only">Ticket Type</label>
+                            <select id="profile-ticket-type" class="w-full rounded-2xl border border-slate-200 px-4 py-3">
+                                <option value="vip" selected>VIP</option>
+                                <option value="general">General</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-5 rounded-[1.8rem] bg-gradient-to-r from-emerald-100 via-sky-100 to-white p-4">
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-[0.24em] text-slate-600">🌗 Theme</p>
+                                <p class="mt-2 text-sm" style="color:var(--muted)">Switch between bright demo mode and darker arena mode.</p>
+                            </div>
+                            <button id="theme-toggle" onclick="toggleTheme()" class="rounded-full bg-slate-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-white">Arena Mode</button>
+                        </div>
+                    </div>
+                    <button onclick="saveProfile()" class="mt-5 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">Save Personalized Experience</button>
+                </div>
             </section>
         </main>
-        <nav class="glass fixed bottom-0 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 items-center justify-around border-t border-slate-200 px-4 py-3">
-            <button data-tab-btn="home" onclick="switchTab('home')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-sky-700 focus:outline-none"><span class="text-lg leading-none">🏟️</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Home</span></button>
-            <button data-tab-btn="map" onclick="switchTab('map')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">🗺️</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Map</span></button>
-            <button data-tab-btn="services" onclick="switchTab('services')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">🍿</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Svc</span></button>
-            <button data-tab-btn="tickets" onclick="switchTab('tickets')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">🎟️</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Tkt</span></button>
-            <button onclick="toggleOrderSheet(true)" class="flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">🍔</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">Food</span></button>
-            <button data-tab-btn="profile" onclick="switchTab('profile')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none"><span class="text-lg leading-none">👤</span><span class="text-[9px] font-bold uppercase tracking-[0.15em]">User</span></button>
+        <nav class="glass fixed bottom-0 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 items-center justify-around border-t border-slate-200 px-4 py-3" role="navigation" aria-label="Main Navigation">
+            <button data-tab-btn="home" onclick="switchTab('home')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-sky-700 focus:outline-none" aria-label="Home Dashboard">
+                <span class="text-lg leading-none" aria-hidden="true">🏟️</span>
+                <span class="text-[9px] font-bold uppercase tracking-[0.15em]">Home</span>
+            </button>
+            <button data-tab-btn="map" onclick="switchTab('map')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none" aria-label="Stadium Map">
+                <span class="text-lg leading-none" aria-hidden="true">🗺️</span>
+                <span class="text-[9px] font-bold uppercase tracking-[0.15em]">Map</span>
+            </button>
+            <button data-tab-btn="services" onclick="switchTab('services')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none" aria-label="Queue Services">
+                <span class="text-lg leading-none" aria-hidden="true">🍿</span>
+                <span class="text-[9px] font-bold uppercase tracking-[0.15em]">Svc</span>
+            </button>
+            <button data-tab-btn="tickets" onclick="switchTab('tickets')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none" aria-label="My Tickets">
+                <span class="text-lg leading-none" aria-hidden="true">🎟️</span>
+                <span class="text-[9px] font-bold uppercase tracking-[0.15em]">Tkt</span>
+            </button>
+            <button onclick="toggleOrderSheet(true)" class="flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none" aria-label="Order Food">
+                <span class="text-lg leading-none" aria-hidden="true">🍔</span>
+                <span class="text-[9px] font-bold uppercase tracking-[0.15em]">Food</span>
+            </button>
+            <button data-tab-btn="profile" onclick="switchTab('profile')" class="tab-btn flex min-w-[3.5rem] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-slate-500 focus:outline-none" aria-label="User Profile">
+                <span class="text-lg leading-none" aria-hidden="true">👤</span>
+                <span class="text-[9px] font-bold uppercase tracking-[0.15em]">User</span>
+            </button>
         </nav>
+        <!-- SOS live announcement region (visually hidden, screen-reader only) -->
+        <div
+            id="sos-announcement"
+            role="status"
+            aria-live="assertive"
+            aria-atomic="true"
+            class="sr-only"
+        ></div>
         <!-- Floating SOS Button -->
-        <button onclick="triggerSOS()" class="fixed bottom-44 right-6 z-[100] w-14 h-14 rounded-full bg-rose-600 shadow-2xl shadow-rose-600/40 flex items-center justify-center border-4 border-white active:scale-90 transition-all group">
-            <span class="text-white text-xl font-black group-hover:scale-110 transition-transform">SOS</span>
+        <button
+            onclick="triggerSOS()"
+            class="fixed bottom-44 right-6 z-[100] w-14 h-14 rounded-full bg-rose-600 shadow-2xl shadow-rose-600/40 flex items-center justify-center border-4 border-white active:scale-90 transition-all group"
+            aria-label="Trigger Emergency SOS — alerts stadium staff to your location"
+        >
+            <span class="text-white text-xl font-black group-hover:scale-110 transition-transform" aria-hidden="true">SOS</span>
         </button>
         <div class="fixed bottom-24 left-1/2 z-[90] w-full max-w-md -translate-x-1/2 px-4">
             <div id="ai-chatbox" class="chat-shell hidden overflow-hidden rounded-[1.8rem] border border-sky-200 bg-white">
                 <div id="chat-header" class="flex items-center justify-between gap-4 px-4 py-3 text-white"><div><p class="text-sm font-black">🤖 Stadium AI Bot</p><p class="text-[10px] uppercase tracking-[0.24em] text-sky-100">Quick help in the corner</p></div><button onclick="toggleChat(false)" class="rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]">Hide</button></div>
-                <div id="ai-conversation" class="max-h-72 space-y-3 overflow-y-auto bg-slate-50 p-4"><div class="max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white"><p>Hello. I am syncing with the live stadium state now.</p><p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-sky-100">Your saved profile shapes my advice.</p></div></div>
+                <div
+                    id="ai-conversation"
+                    class="max-h-72 space-y-3 overflow-y-auto bg-slate-50 p-4"
+                    aria-live="polite"
+                    aria-atomic="false"
+                    aria-label="AI assistant conversation"
+                    role="log"
+                ><div class="max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white"><p>Hello. I am syncing with the live stadium state now.</p><p class="mt-2 text-[11px] uppercase tracking-[0.18em] text-sky-100">Your saved profile shapes my advice.</p></div></div>
                 <div class="space-y-3 bg-white p-4">
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="submitAIQuery('Where is the shortest line right now?')" class="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-3 text-left text-xs font-bold text-sky-700">🚪 Shortest line</button>
@@ -391,62 +517,62 @@
                     </div>
                 </div>
             </div>
-            <div class="mt-3 flex justify-end"><button id="ai-launcher" onclick="toggleChat(true)" class="rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 px-5 py-4 text-sm font-black text-white shadow-[0_12px_36px_rgba(59,130,246,0.45)]">🤖 AI</button></div>
+            <div class="mt-3 flex justify-end"><button id="ai-launcher" onclick="toggleChat(true)" aria-label="Open AI stadium assistant chat" class="rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 px-5 py-4 text-sm font-black text-white shadow-[0_12px_36px_rgba(59,130,246,0.45)]">🤖 AI</button></div>
         </div>
     </div>
     <script>
         let totalPoints = 240, cartTotal = 0, activeDiscount = 0, ws = null, reconnectTimer = null, reconnecting = false, isDarkMode = false;
         let claimedBounties = new Set();
-        let lastBounties = []; 
-        let map, routeLine, recognition, heatmapLayer;
-        const STADIUM_COORDS = [33.9534, -118.3392];
-        const GATE_COORDS = {
-            'gate_a': [33.9545, -118.3395],
-            'gate_b': [33.9530, -118.3410],
-            'gate_c': [33.9520, -118.3385],
-            'food': [33.9538, -118.3400]
-        };
-        
         const menuItems = [
-            { id: 1, name: 'Biryani Bowl', desc: 'Aromatic basmati with premium spices', price: 450, cat: 'meals', icon: '🍛' },
-            { id: 2, name: 'Burger Combo', desc: 'Juicy patty + fries + soft drink', price: 350, cat: 'meals', icon: '🍔' },
-            { id: 3, name: 'Pizza Slice', desc: 'Cheesy margherita with fresh herbs', price: 200, cat: 'meals', icon: '🍕' },
-            { id: 4, name: 'Samosa Plate', desc: '2 pcs with spicy mint chutney', price: 120, cat: 'snacks', icon: '🥟' },
-            { id: 5, name: 'Popcorn Tub', desc: 'Butter salted large theater tub', price: 150, cat: 'snacks', icon: '🍿' },
-            { id: 6, name: 'Nachos Supreme', desc: 'With hot cheese and jalapenos', price: 180, cat: 'snacks', icon: '🌮' },
-            { id: 7, name: 'Cold Coffee', desc: 'Iced brew with creamy milk', price: 150, cat: 'drinks', icon: '🧋' },
-            { id: 8, name: 'Soft Drink', desc: 'Large chilled cola or lemon', price: 90, cat: 'drinks', icon: '🥤' },
-            { id: 9, name: 'Water Bottle', desc: 'Mineral water 500ml', price: 50, cat: 'drinks', icon: '💧' },
+            { name: 'Signature Burger', price: 450, cat: 'meals', icon: '🍔', desc: 'Prime beef, aged cheddar, brioche' },
+            { name: 'Garden Fresh Wrap', price: 400, cat: 'meals', icon: '🌯', desc: 'Hummus, feta, and crisp greens' },
+            { name: 'Cheesy Nachos', price: 300, cat: 'snacks', icon: '🧀', desc: 'Warm queso and pickled jalapeños' },
+            { name: 'Jumbo Popcorn', price: 250, cat: 'snacks', icon: '🍿', desc: 'Classic stadium butter flavor' },
+            { name: 'Iced Cola', price: 150, cat: 'drinks', icon: '🥤', desc: 'Refreshing 500ml chilled soda' },
+            { name: 'Craft Lager', price: 550, cat: 'drinks', icon: '🍺', desc: 'Local brewery premium draught' }
         ];
+        let lastBounties = []; 
+        let map, routePath, recognition, heatmapLayer;
+        const STADIUM_COORDS = { lat: 33.9534, lng: -118.3392 };
+        const GATE_COORDS = {
+            'gate_a': { lat: 33.9545, lng: -118.3395 },
+            'gate_b': { lat: 33.9530, lng: -118.3410 },
+            'gate_c': { lat: 33.9520, lng: -118.3385 },
+            'food': { lat: 33.9538, lng: -118.3400 }
+        };
 
         function initMap() {
             if (map) return;
-            map = L.map('leaflet-map', { zoomControl: false }).setView(STADIUM_COORDS, 17);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; CartoDB'
-            }).addTo(map);
-            L.circle(STADIUM_COORDS, { radius: 25, color: '#3b82f6', fillOpacity: 0.15 }).addTo(map);
+            // Use Google Maps JS API
+            map = new google.maps.Map(document.getElementById("google-map-container"), {
+                center: STADIUM_COORDS,
+                zoom: 16,
+                mapTypeId: 'roadmap',
+                disableDefaultUI: true
+            });
 
-            // Initialize Heatmap
-            if (typeof L.heatLayer === 'function') {
-                heatmapLayer = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
-            }
+            // Google Heatmap Layer
+            heatmapLayer = new google.maps.visualization.HeatmapLayer({
+                data: [],
+                map: map,
+                radius: 40
+            });
         }
 
         function updateHeatmap(density) {
             if (!heatmapLayer) return;
             const points = [
-                [STADIUM_COORDS[0], STADIUM_COORDS[1], density / 100],
-                [STADIUM_COORDS[0] + 0.0005, STADIUM_COORDS[1] + 0.0005, (density * 0.8) / 100],
-                [STADIUM_COORDS[0] - 0.0008, STADIUM_COORDS[1] - 0.0003, (density * 1.2) / 100],
-                [STADIUM_COORDS[0] + 0.0002, STADIUM_COORDS[1] - 0.0006, (density * 0.5) / 100]
+                { location: new google.maps.LatLng(STADIUM_COORDS.lat, STADIUM_COORDS.lng), weight: density / 10 },
+                { location: new google.maps.LatLng(STADIUM_COORDS.lat + 0.0005, STADIUM_COORDS.lng + 0.0005), weight: (density * 0.8) / 10 },
+                { location: new google.maps.LatLng(STADIUM_COORDS.lat - 0.0008, STADIUM_COORDS.lng - 0.0003), weight: (density * 1.2) / 10 }
             ];
-            heatmapLayer.setLatLngs(points);
+            heatmapLayer.setData(points);
         }
 
         function drawRoute(target) {
             if(!map) return;
-            if(routeLine) map.removeLayer(routeLine);
+            if(routePath) routePath.setMap(null);
+            
             const t = (target || '').toLowerCase();
             let endCoords = STADIUM_COORDS;
             if(t.includes('gate a') || t.includes('north') || t.includes('gate_a')) endCoords = GATE_COORDS['gate_a'];
@@ -454,10 +580,15 @@
             else if(t.includes('gate c') || t.includes('south') || t.includes('gate_c')) endCoords = GATE_COORDS['gate_c'];
             else if(t.includes('food')) endCoords = GATE_COORDS['food'];
 
-            routeLine = L.polyline([STADIUM_COORDS, endCoords], {
-                color: '#10b981', weight: 6, opacity: 0.8, dashArray: '12, 12'
-            }).addTo(map);
-            map.flyTo(endCoords, 18);
+            routePath = new google.maps.Polyline({
+                path: [STADIUM_COORDS, endCoords],
+                geodesic: true,
+                strokeColor: '#10b981',
+                strokeOpacity: 0.9,
+                strokeWeight: 6,
+                map: map
+            });
+            map.panTo(endCoords);
         }
 
         function toggleVoice() {
@@ -487,24 +618,25 @@
             filtered.forEach(item => {
                 const el = document.createElement('div');
                 el.className = 'flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4';
-                el.innerHTML = `<div><p class="font-bold">${item.icon} ${item.name}</p><p class="mt-1 text-sm" style="color:var(--muted)">${item.desc}</p></div><button onclick="addToCart(${item.price})" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">+₹${item.price}</button>`;
+                el.innerHTML = `<div><p class="font-bold">${item.icon} ${item.name}</p><p class="mt-1 text-sm" style="color:var(--muted)">${item.desc}</p></div><button onclick="addToCart(${item.price})" aria-label="Add ${item.name} to cart, \u20b9${item.price}" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">+\u20b9${item.price}</button>`;
                 menuWrap.appendChild(el);
             });
         }
 
-        function filterMenu(cat) {
+        function filterMenu(evt, cat) {
             document.querySelectorAll('.food-cat-btn').forEach(b => {
                 b.classList.remove('bg-slate-900', 'text-white');
                 b.classList.add('border', 'border-slate-200', 'bg-white', 'text-slate-700');
             });
-            event.currentTarget.classList.remove('border', 'border-slate-200', 'bg-white', 'text-slate-700');
-            event.currentTarget.classList.add('bg-slate-900', 'text-white');
+            const btn = evt.currentTarget;
+            btn.classList.remove('border', 'border-slate-200', 'bg-white', 'text-slate-700');
+            btn.classList.add('bg-slate-900', 'text-white');
             renderMenu(cat);
         }
 
         function titleize(v){return v.split('_').map(p=>p.charAt(0).toUpperCase()+p.slice(1)).join(' ')}
         function serviceEmoji(k){if(k.includes('food'))return'🍔'; if(k.includes('restroom'))return'🚻'; if(k.includes('merch'))return'🧢'; return'🛂'}
-        function switchTab(tab){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('bg-sky-100','text-sky-700');b.classList.add('text-slate-500')});document.getElementById(`tab-${tab}`).classList.add('active');const btn=document.querySelector(`[data-tab-btn="${tab}"]`);btn.classList.add('bg-sky-100','text-sky-700');btn.classList.remove('text-slate-500'); if(tab==='map' && map) setTimeout(()=>map.invalidateSize(), 300);}
+        function switchTab(tab){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('bg-sky-100','text-sky-700');b.classList.add('text-slate-500')});document.getElementById(`tab-${tab}`).classList.add('active');const btn=document.querySelector(`[data-tab-btn="${tab}"]`);btn.classList.add('bg-sky-100','text-sky-700');btn.classList.remove('text-slate-500'); if(tab==='map' && map) setTimeout(()=>google.maps.event.trigger(map,'resize'), 300);}
         function toggleChat(show){document.getElementById('ai-chatbox').classList.toggle('hidden',!show);document.getElementById('ai-launcher').classList.toggle('hidden',show)}
         function toggleTicket(show){document.getElementById('ticket-modal').classList.toggle('hidden',!show)}
         function toggleOrderSheet(show){document.getElementById('order-sheet').classList.toggle('hidden',!show);updatePointsUI();updateCheckoutTotal()}
@@ -571,7 +703,27 @@
         }
         function sendReaction(emoji){const btn = event.currentTarget;btn.classList.add('scale-125');setTimeout(() => btn.classList.remove('scale-125'), 200);const floater = document.createElement('div');floater.innerText = emoji;floater.className = 'fixed bottom-40 right-10 z-[120] text-4xl pointer-events-none float-react';document.body.appendChild(floater);setTimeout(() => floater.remove(), 1500);}
         function toggleSmartPath(){ const s = document.getElementById('best-route').innerText; drawRoute(s); }
-        function appendConversation(text,meta,tone){const bubble=document.createElement('div');bubble.className=tone==='user'?'ml-auto max-w-[85%] rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white':'max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white';bubble.innerHTML=`<p>${text}</p>${meta?`<p class="mt-2 text-[11px] uppercase tracking-[0.18em] ${tone==='user'?'text-slate-300':'text-sky-100'}">${meta}</p>`:''}`;const convo=document.getElementById('ai-conversation');convo.appendChild(bubble);convo.scrollTop=convo.scrollHeight; if(tone==='assistant') speak(text); }
+        function appendConversation(text, meta, tone, accessibility, route) {
+            const bubble = document.createElement('div');
+            bubble.className = tone === 'user' ? 'ml-auto max-w-[85%] rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white' : 'max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white';
+            
+            let content = `<p>${text}</p>`;
+            if (accessibility) {
+                content += `<div class="mt-2 rounded-xl bg-white/10 p-2 text-[11px]"><span class="font-bold">♿ Accessibility:</span> ${accessibility}</div>`;
+            }
+            if (route) {
+                content += `<div class="mt-1 rounded-xl bg-white/10 p-2 text-[11px]"><span class="font-bold">🗺️ Route:</span> ${route}</div>`;
+            }
+            if (meta) {
+                content += `<p class="mt-2 text-[11px] uppercase tracking-[0.18em] ${tone === 'user' ? 'text-slate-300' : 'text-sky-100'}">${meta}</p>`;
+            }
+            
+            bubble.innerHTML = content;
+            const convo = document.getElementById('ai-conversation');
+            convo.appendChild(bubble);
+            convo.scrollTop = convo.scrollHeight;
+            if (tone === 'assistant') speak(text + (accessibility ? ". " + accessibility : ""));
+        }
         function updateProfileUI(profile,routePlan,evaluation){
             if(!profile || !routePlan) return;
             document.getElementById('profile-name').value=profile.name;
@@ -644,11 +796,22 @@
         }
         function selectSection(name, price){document.getElementById('booking-prompt').classList.add('hidden');const details = document.getElementById('selection-details');details.classList.remove('hidden');document.getElementById('selected-name').innerText = name;document.getElementById('selected-price').innerText = `₹${price * 10}`;document.querySelectorAll('g.cursor-pointer path').forEach(p => p.setAttribute('fill', '#cbd5e1'));}
         function confirmBooking(){const name = document.getElementById('selected-name').innerText;alert(`Booking confirmed for ${name}!`);toggleTicket(true);}
-        function triggerSOS(){const confirmSOS = confirm("TRIGGER SOS?");if(confirmSOS){submitAIQuery("SOS EMERGENCY: I am at Section 112!");}}
+        function triggerSOS() {
+            const confirmSOS = confirm("TRIGGER SOS? This will alert stadium staff to your location.");
+            if (confirmSOS) {
+                // Announce immediately to screen readers via assertive live region
+                const announcement = document.getElementById('sos-announcement');
+                if (announcement) {
+                    announcement.textContent = 'SOS activated. Emergency alert sent to stadium staff. Help is on the way.';
+                    setTimeout(() => { announcement.textContent = ''; }, 5000);
+                }
+                submitAIQuery('SOS EMERGENCY: I am at Section 112!');
+            }
+        }
         const POI_DATA = {
-            'washroom': [[33.9535, -118.3405], [33.9525, -118.3380]],
-            'food': [[33.9540, -118.3415], [33.9528, -118.3395]],
-            'exit': [[33.9548, -118.3390], [33.9515, -118.3388]]
+            'washroom': [{ lat: 33.9535, lng: -118.3405 }, { lat: 33.9525, lng: -118.3380 }],
+            'food': [{ lat: 33.9540, lng: -118.3415 }, { lat: 33.9528, lng: -118.3395 }],
+            'exit': [{ lat: 33.9548, lng: -118.3390 }, { lat: 33.9515, lng: -118.3388 }]
         };
         const activeMarkers = { 'washroom': [], 'food': [], 'exit': [] };
 
@@ -657,20 +820,20 @@
             const btn = event.currentTarget;
             
             if (activeMarkers[type].length > 0) {
-                // Remove markers
-                activeMarkers[type].forEach(m => map.removeLayer(m));
+                activeMarkers[type].forEach(m => m.setMap(null));
                 activeMarkers[type] = [];
                 btn.classList.remove('bg-sky-100', 'border-sky-300');
             } else {
-                // Add markers
                 POI_DATA[type].forEach(coords => {
-                    const m = L.marker(coords, {
-                        icon: L.divIcon({
-                            html: `<div class="flex items-center justify-center w-8 h-8 bg-white rounded-full shadow-lg border-2 border-sky-500 text-sm">${iconMap[type]}</div>`,
-                            className: '',
-                            iconSize: [32, 32]
-                        })
-                    }).addTo(map);
+                    const m = new google.maps.Marker({
+                        position: coords,
+                        map: map,
+                        label: {
+                            text: iconMap[type],
+                            fontSize: '16px',
+                            color: 'white'
+                        }
+                    });
                     activeMarkers[type].push(m);
                 });
                 btn.classList.add('bg-sky-100', 'border-sky-300');
@@ -722,8 +885,48 @@
                 }
             }
         }
+        function saveToGoogleWallet(evt) {
+            alert("This would normally initiate the Google Wallet API 'Save to Android' flow for your VIP pass.");
+            const button = evt.currentTarget;
+            button.innerHTML = '<span class="text-xs font-bold uppercase tracking-widest text-emerald-400">Added to Wallet ✓</span>';
+            button.disabled = true;
+        }
+        function addToCalendar() {
+            const title = encodeURIComponent("SmartStadium Match: Lions vs Tigers");
+            const details = encodeURIComponent("Your VIP access at SoFi Stadium. Section 112.");
+            const location = encodeURIComponent("SoFi Stadium, Inglewood, CA");
+            const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&location=${location}`;
+            window.open(url, '_blank');
+        }
         async function saveProfile(){const response=await fetch('/api/v1/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(profilePayload())});const result=await response.json();updateProfileUI(result.profile,result.profile,{improvements:{avg_wait_improvement_pct:0}});switchTab('home')}
-        async function submitAIQuery(query){const trimmed=(query||'').trim();if(!trimmed)return;toggleChat(true);document.getElementById('voice-text-input').value='';appendConversation(trimmed,'Fan query','user');const response=await fetch('/api/v1/ask_ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:trimmed,profile:profilePayload()})});const result=await response.json();const ai=result.response;appendConversation(ai.narrative||ai.message,`${ai.provider}`,'assistant');if(result.stadium_state.route_plan){const best = result.stadium_state.route_plan.best_gate;document.getElementById('best-route').innerText=titleize(best);drawRoute(best);}}
+        async function submitAIQuery(query) {
+            const trimmed = (query || '').trim();
+            if (!trimmed) return;
+            toggleChat(true);
+            document.getElementById('voice-text-input').value = '';
+            appendConversation(trimmed, 'Fan query', 'user');
+            const response = await fetch('/api/v1/ask_ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: trimmed, profile: profilePayload() })
+            });
+            const result = await response.json();
+            const ai = result.response;
+            appendConversation(
+                ai.narrative || ai.message, 
+                `${ai.provider}`, 
+                'assistant',
+                ai.accessibility_notes,
+                ai.suggested_route,
+                ai.crowd_prediction,
+                ai.recommended_gate
+            );
+            if (result.stadium_state && result.stadium_state.route_plan) {
+                const best = result.stadium_state.route_plan.best_gate;
+                document.getElementById('best-route').innerText = titleize(best);
+                drawRoute(best);
+            }
+        }
         async function loadConfig(){
             const response=await fetch('/api/v1/config');
             const result=await response.json();
@@ -754,6 +957,45 @@
         }
         function connectWebSocket(){if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;reconnecting=false;ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/data`);ws.onmessage=(event)=>renderTelemetry(JSON.parse(event.data));ws.onopen=()=>{document.getElementById('offline-banner').classList.add('hidden');document.getElementById('main-header').classList.remove('opacity-60');document.getElementById('live-indicator').innerText='Live Sync Active'};const scheduleReconnect=()=>{if(reconnecting)return;reconnecting=true;document.getElementById('offline-banner').classList.remove('hidden');document.getElementById('main-header').classList.add('opacity-60');document.getElementById('live-indicator').innerText='Offline Fallback';reconnectTimer=setTimeout(()=>{reconnectTimer=null;connectWebSocket()},5000)};ws.onerror=scheduleReconnect;ws.onclose=scheduleReconnect}
         document.addEventListener('DOMContentLoaded',async()=>{await loadConfig();initMap();switchTab('home');renderMenu('all');document.getElementById('voice-text-input').addEventListener('keydown',(event)=>{if(event.key==='Enter')submitAIQuery(event.target.value)});connectWebSocket()})
+    </script>
+    <!-- Google Maps Live Modal -->
+    <div id="google-live-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/90 p-6 backdrop-blur-sm">
+        <div class="relative w-full max-w-lg rounded-[2rem] bg-white p-2 shadow-2xl overflow-hidden">
+            <button onclick="closeGoogleLiveView()" class="absolute right-4 top-4 z-10 rounded-full bg-black/50 p-2 text-white hover:bg-black/70">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+            <div id="google-iframe-wrap" class="h-[450px] w-full rounded-[1.5rem] overflow-hidden">
+                <!-- Iframe injected on demand -->
+            </div>
+            <div class="p-4 text-center">
+                <p class="text-xs font-bold uppercase tracking-widest text-slate-500">Official Google Maps Data Feed</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Translate Script -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({pageLanguage: 'en', layout: google.translate.TranslateElement.InlineLayout.SIMPLE}, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <script>
+        function openGoogleLiveView() {
+            const wrap = document.getElementById('google-iframe-wrap');
+            const key = '{{ google_maps_api_key }}';
+            if (!key) {
+                wrap.innerHTML = '<div class="p-6 text-center text-sm text-slate-600">Google Maps iframe requires an API key. Set GOOGLE_MAPS_API_KEY in .env.</div>';
+            } else {
+                wrap.innerHTML = `<iframe width="100%" height="100%" style="border:0" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed/v1/place?key=${key}&q=SoFi+Stadium&maptype=satellite"></iframe>`;
+            }
+            document.getElementById('google-live-modal').classList.remove('hidden');
+        }
+        function closeGoogleLiveView() {
+            document.getElementById('google-live-modal').classList.add('hidden');
+            document.getElementById('google-iframe-wrap').innerHTML = '';
+        }
     </script>
 </body>
 </html>

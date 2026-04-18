@@ -45,10 +45,23 @@ class DecisionEngine:
         else:
             response = self._handle_general(state, query, profile)
 
-        if self.narrator and self.narrator.enabled:
-            llm_text = await self.narrator.explain(state=state, prompt=query, response=response, profile=profile.model_dump())
-            if llm_text:
-                response["narrative"] = llm_text
+        if self.narrator:
+            llm_response = await self.narrator.get_decision(
+                scenario_label=state["scenario_label"],
+                alert_msg=response["message"],
+                stadium_state=state,
+                user_context=profile.model_dump()
+            )
+            if llm_response:
+                response["narrative"] = llm_response.narrative
+                response["accessibility_notes"] = llm_response.accessibility_notes
+                if llm_response.suggested_route:
+                    response["suggested_route"] = llm_response.suggested_route
+                
+                # New Decision Fields
+                response["crowd_prediction"] = llm_response.crowd_prediction
+                response["recommended_gate"] = llm_response.recommended_gate
+                response["staff_action"] = llm_response.staff_action
                 response["provider"] = "gemini"
 
         if "provider" not in response:

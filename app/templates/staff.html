@@ -2,50 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>Staff Command Center | SmartStadium AI</title>
+    <meta name="description" content="AI Command Center for stadium operators. Monitor real-time crowd density, manage incidents, and optimize security operations.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Security Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Maps JS API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=visualization"></script>
     <style>
         body { background: radial-gradient(circle at top, #10203d 0%, #050814 70%); }
         .glass { background: rgba(8, 15, 29, 0.78); backdrop-filter: blur(18px); border: 1px solid rgba(148, 163, 184, 0.15); }
+        #google-staff-map { height: 380px; width: 100%; border-radius: 2rem; border: 1px solid rgba(148, 163, 184, 0.1); }
     </style>
 </head>
 <body class="min-h-screen text-slate-100">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999] focus:bg-cyan-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-xl focus:font-bold">Skip to main content</a>
     <div class="mx-auto max-w-7xl px-4 py-5">
-        <header class="glass rounded-[2rem] px-6 py-5">
+        <header class="glass rounded-[2rem] px-6 py-5" role="banner">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <a href="/" class="text-xs font-bold uppercase tracking-[0.3em] text-slate-500">Back</a>
+                    <a href="/" class="text-xs font-bold uppercase tracking-[0.3em] text-slate-500" aria-label="Return to landing page">Back</a>
                     <h1 class="mt-2 text-3xl font-black">Security Command.ai</h1>
-                    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Operator dashboard with scenario control, measurable AI impact, incident history, and staffing recommendations for PromptWars judging.</p>
+                    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Operator dashboard with scenario control, measurable AI impact, incident history, and staffing recommendations.</p>
                 </div>
                 <div class="flex flex-col gap-3 lg:items-end">
-                    <div id="scenario-buttons" class="flex flex-wrap gap-2"></div>
+                    <div id="scenario-buttons" class="flex flex-wrap gap-2" role="group" aria-label="Scenario Controls"></div>
                     <div class="flex flex-wrap gap-3">
-                        <button id="panic-btn" onclick="togglePanic()" class="rounded-full border border-rose-400 bg-rose-600 px-4 py-3 text-xs font-bold uppercase tracking-[0.25em] text-white">Manual Evacuation Override</button>
-                        <div class="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.25em] text-emerald-300">WebSocket Live</div>
+                        <button id="panic-btn" onclick="togglePanic()" class="rounded-full border border-rose-400 bg-rose-600 px-4 py-3 text-xs font-bold uppercase tracking-[0.25em] text-white" aria-label="Trigger Manual Evacuation Override">Manual Evacuation Override</button>
+                        <div class="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.25em] text-emerald-300" aria-live="polite">WebSocket Live</div>
                     </div>
                 </div>
             </div>
         </header>
 
-        <main class="mt-5 grid gap-5 xl:grid-cols-[1.1fr_1fr_0.9fr]">
-            <section class="glass rounded-[2rem] p-5">
+        <main id="main-content" class="mt-5 grid gap-5 xl:grid-cols-[1.1fr_1fr_0.9fr]" role="main">
+            <section class="glass rounded-[2rem] p-5" aria-labelledby="scenario-label">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">Scenario Control</p>
                         <h2 class="mt-2 text-2xl font-black" id="scenario-label">Normal Operations</h2>
-                        <p id="scenario-description" class="mt-2 text-sm leading-6 text-slate-400">Waiting for telemetry...</p>
+                        <p id="scenario-description" class="mt-2 text-sm leading-6 text-slate-400" aria-live="polite">Waiting for telemetry...</p>
                     </div>
                     <div class="rounded-3xl bg-slate-900 px-4 py-3 text-right">
                         <p class="text-[10px] uppercase tracking-[0.28em] text-slate-500">Incident Type</p>
                         <p id="incident-type" class="mt-2 text-lg font-black text-cyan-300">Routine Flow</p>
                     </div>
                 </div>
-                <div id="heatmap-grid" class="mt-5 grid gap-3 md:grid-cols-2"></div>
+                <div class="mt-5 relative overflow-hidden rounded-[2rem]">
+                    <div id="google-staff-map"></div>
+                    <div class="absolute bottom-4 left-4 rounded-full bg-slate-900/80 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-cyan-300 backdrop-blur-md border border-cyan-500/30">
+                        Live Satellite Radar
+                    </div>
+                </div>
+                <!-- Zone Indicators Overlay -->
+                <div id="heatmap-grid" class="mt-4 grid gap-3 grid-cols-3" role="region" aria-label="Zone Status Heatmaps"></div>
             </section>
 
-            <section class="glass rounded-[2rem] p-5">
+            <section class="glass rounded-[2rem] p-5" aria-label="Measured Impact Analytics">
                 <p class="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">Measured Impact</p>
                 <div class="mt-4 grid gap-3 sm:grid-cols-2">
                     <div class="rounded-[1.5rem] bg-slate-900/70 p-4">
@@ -83,7 +95,7 @@
                 </div>
             </section>
 
-            <section class="glass rounded-[2rem] p-5">
+            <section class="glass rounded-[2rem] p-5" aria-label="AI Decision Layer">
                 <p class="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">Decision Layer</p>
                 <div class="mt-4 space-y-3">
                     <div class="rounded-[1.5rem] bg-slate-900/70 p-4">
@@ -100,8 +112,26 @@
                         <p id="escalation-priority" class="mt-3 text-2xl font-black text-amber-300">Medium</p>
                     </div>
                     <div class="rounded-[1.5rem] bg-slate-900/70 p-4">
-                        <p class="text-[10px] uppercase tracking-[0.26em] text-slate-500">Google Services</p>
-                        <p id="google-services" class="mt-3 text-sm leading-6 text-slate-300">Maps Embed</p>
+                        <p class="text-[10px] uppercase tracking-[0.26em] text-slate-500">Service Status</p>
+                        <div class="mt-3 flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-2">
+                                <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <p class="text-sm font-bold text-slate-300">Google Cloud Platform</p>
+                            </div>
+                            <button onclick="window.open('https://console.cloud.google.com/', '_blank')" class="text-[10px] font-bold text-sky-400 uppercase tracking-widest border-b border-sky-400/30">Console</button>
+                        </div>
+                    </div>
+                    <div class="rounded-[1.5rem] bg-slate-900/70 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.26em] text-slate-500">Active Google Services</p>
+                        <p id="google-services" class="mt-2 text-sm font-bold text-cyan-300">Loading...</p>
+                    </div>
+                    <div class="rounded-[1.5rem] bg-indigo-900/20 border border-indigo-500/20 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.26em] text-indigo-400">Core AI Engine</p>
+                        <div class="mt-3 flex items-center gap-3">
+                            <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a694445.svg" class="w-5 h-5" alt="Gemini">
+                            <p class="text-sm font-black text-white">Gemini 2.0 Decision Engine</p>
+                            <span class="text-[9px] bg-indigo-500 text-white px-2 py-0.5 rounded-full uppercase tracking-tighter">Decision Logic Active</span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -163,6 +193,54 @@
         let ws = null;
         let reconnectTimer = null;
         let reconnecting = false;
+        let map, heatmap;
+        const STADIUM_COORDS = { lat: 33.9534, lng: -118.3392 };
+
+        function initMap() {
+            if (map) return;
+            map = new google.maps.Map(document.getElementById("google-staff-map"), {
+                center: STADIUM_COORDS,
+                zoom: 15,
+                mapTypeId: 'roadmap',
+                disableDefaultUI: true,
+                styles: [
+                    { "featureType": "all", "elementType": "labels.text.fill", "stylers": [{ "color": "#ffffff" }] },
+                    { "featureType": "all", "elementType": "labels.text.stroke", "stylers": [{ "color": "#000000" }, { "lightness": 13 }] },
+                    { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "color": "#000000" }, { "lightness": 20 }] },
+                    { "featureType": "landscape", "elementType": "geometry", "stylers": [{ "color": "#000000" }, { "lightness": 20 }] },
+                    { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#000000" }, { "lightness": 21 }] },
+                    { "featureType": "road.highway", "elementType": "geometry.fill", "stylers": [{ "color": "#000000" }, { "lightness": 17 }] },
+                    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#0d1a2f" }] }
+                ]
+            });
+
+            heatmap = new google.maps.visualization.HeatmapLayer({
+                data: [],
+                map: map,
+                radius: 60
+            });
+        }
+
+        function updateGoogleHeatmap(heatmaps) {
+            if (!heatmap) return;
+            const points = [];
+            const coords = {
+                'north_gate': { lat: 33.9545, lng: -118.3395 },
+                'concourse_a': { lat: 33.9530, lng: -118.3410 },
+                'south_gate': { lat: 33.9520, lng: -118.3385 }
+            };
+            const ranking = { 'low': 10, 'medium': 30, 'high': 60, 'critical': 100 };
+            
+            Object.entries(heatmaps).forEach(([zone, status]) => {
+                if (coords[zone]) {
+                    points.push({
+                        location: new google.maps.LatLng(coords[zone].lat, coords[zone].lng),
+                        weight: ranking[status] || 10
+                    });
+                }
+            });
+            heatmap.setData(points);
+        }
 
         function titleize(value) {
             return value.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
@@ -185,6 +263,8 @@
         function renderHeatmaps(heatmaps) {
             const wrapper = document.getElementById('heatmap-grid');
             wrapper.innerHTML = '';
+            const statusIcon = { critical: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+            const statusLabel = { critical: 'Critical', high: 'High', medium: 'Moderate', low: 'Clear' };
             Object.entries(heatmaps).forEach(([zone, status]) => {
                 const color = status === 'critical'
                     ? 'border-rose-500/60 bg-rose-500/10 text-rose-200'
@@ -195,9 +275,10 @@
                     : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
                 const card = document.createElement('div');
                 card.className = `rounded-[1.5rem] border p-4 ${color}`;
+                card.setAttribute('aria-label', `${titleize(zone)}: ${statusLabel[status] || status}`);
                 card.innerHTML = `
                     <p class="text-[10px] uppercase tracking-[0.26em] opacity-70">${titleize(zone)}</p>
-                    <p class="mt-2 text-2xl font-black">${titleize(status)}</p>
+                    <p class="mt-2 text-xl font-black">${statusIcon[status] || ''} ${statusLabel[status] || titleize(status)}</p>
                 `;
                 wrapper.appendChild(card);
             });
@@ -256,6 +337,7 @@
             document.getElementById('scenario-description').innerText = data.scenario_description;
             document.getElementById('incident-type').innerText = titleize(data.incident_type);
             renderHeatmaps(data.heatmaps);
+            updateGoogleHeatmap(data.heatmaps);
 
             document.getElementById('before-wait').innerText = data.evaluation.before_ai.avg_wait_minutes;
             document.getElementById('after-wait').innerText = data.evaluation.after_ai.avg_wait_minutes;
@@ -348,11 +430,21 @@
             ws.onclose = scheduleReconnect;
         }
 
+        // Poll only DB analytics (not live telemetry — that's handled by WebSocket)
+        async function pollAnalyticsOnly() {
+            try {
+                const response = await fetch('/api/v1/analytics');
+                const result = await response.json();
+                renderAnalytics(result.analytics);
+            } catch (e) { /* silent fail — WS handles primary state */ }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
+            initMap();
             await loadConfig();
-            await fetchAnalytics();
+            await fetchAnalytics(); // Initial full load
             connectWebSocket();
-            setInterval(fetchAnalytics, 10000);
+            setInterval(pollAnalyticsOnly, 15000); // Only refresh DB analytics, not telemetry
         });
     </script>
 </body>

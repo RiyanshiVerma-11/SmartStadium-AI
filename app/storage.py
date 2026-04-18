@@ -94,6 +94,16 @@ class Storage:
                 """,
                 (snapshot["scenario"], json.dumps(snapshot)),
             )
+            # Prevent unbounded growth — keep only the most recent 200 snapshots
+            conn.execute(
+                """
+                DELETE FROM telemetry_snapshots
+                WHERE id NOT IN (
+                    SELECT id FROM telemetry_snapshots ORDER BY id DESC LIMIT 200
+                )
+                """
+            )
+
 
     def get_dashboard_analytics(self, scenario: str) -> dict[str, Any]:
         with self._connect() as conn:

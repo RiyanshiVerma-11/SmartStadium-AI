@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-powered stadium experience and crowd management platform. Optimize your fan journey with real-time telemetry and safety-first routing.">
     <title>Login | SmartStadium AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
             font-family: 'Outfit', sans-serif;
@@ -32,69 +34,93 @@
             border-color: #38bdf8;
             background: rgba(56, 189, 248, 0.1);
         }
+        .stadium-glow {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.15), transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 8s ease-in-out infinite;
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+        }
         .hidden { display: none; }
     </style>
 </head>
 <body class="min-h-screen text-slate-100 flex items-center justify-center p-6">
+    <a href="#login-methods" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999] focus:bg-blue-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-xl focus:font-bold">Skip to login options</a>
     <!-- Background Decor -->
+    <div class="stadium-glow animate-pulse-slow"></div>
     <div class="fixed top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full"></div>
     <div class="fixed bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full"></div>
 
-    <div class="w-full max-w-lg">
+    <main class="w-full max-w-lg" role="main">
         <div class="glass rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden">
             <!-- Header -->
-            <div class="text-center mb-10">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 mb-6 shadow-lg shadow-blue-500/20">
+            <header class="text-center mb-10">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 mb-6 shadow-lg shadow-blue-500/20" aria-hidden="true">
                     <span class="text-3xl">🏟️</span>
                 </div>
                 <h1 class="text-4xl font-black tracking-tight mb-2">SmartStadium<span class="text-blue-400">AI</span></h1>
                 <p class="text-slate-400 font-medium">Elevating your matchday experience</p>
-            </div>
+            </header>
 
             <!-- Login Method Selection -->
-            <div id="login-methods" class="space-y-4">
-                <button onclick="showStep('auth-form', 'email')" class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
-                    <span class="text-xl">✉️</span>
+            <nav id="login-methods" class="space-y-4" aria-label="Login methods">
+                <button onclick="showStep('auth-form', 'email')" class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group" aria-label="Continue with Email">
+                    <span class="text-xl" aria-hidden="true">✉️</span>
                     <span class="font-semibold">Continue with Email</span>
                 </button>
-                <button onclick="showStep('auth-form', 'phone')" class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
-                    <span class="text-xl">📱</span>
+                <button onclick="showStep('auth-form', 'phone')" class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group" aria-label="Continue with Phone">
+                    <span class="text-xl" aria-hidden="true">📱</span>
                     <span class="font-semibold">Continue with Phone</span>
                 </button>
-                <div class="flex items-center gap-4 my-6">
+                <div class="flex items-center gap-4 my-6" aria-hidden="true">
                     <div class="h-[1px] flex-1 bg-white/10"></div>
                     <span class="text-xs font-bold uppercase tracking-widest text-slate-500">Or</span>
                     <div class="h-[1px] flex-1 bg-white/10"></div>
                 </div>
-                <button onclick="fakeLogin('google')" class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white text-slate-900 font-bold hover:bg-slate-100 transition-all">
-                    <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" class="w-5 h-5" alt="Google">
+                {% if google_identity_client_id %}
+                <div id="google-signin-button" class="w-full" style="min-height: 52px;"></div>
+                {% else %}
+                <button onclick="fakeLogin(event, 'google')" class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white text-slate-900 font-bold hover:bg-slate-100 transition-all" aria-label="Sign in with Google">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" class="w-5 h-5" alt="Google logo">
                     <span>Sign in with Google</span>
                 </button>
-            </div>
+                {% endif %}
+            </nav>
 
             <!-- Auth Form (Email/Phone) -->
-            <div id="auth-form" class="hidden space-y-6">
+            <form id="auth-form" class="hidden space-y-6" onsubmit="event.preventDefault(); validateAuthInput();">
                 <div>
-                    <label id="input-label" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Email Address</label>
-                    <input id="auth-input" type="text" placeholder="Enter your email" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 transition-all text-lg">
+                    <label id="input-label" for="auth-input" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Email Address</label>
+                    <input id="auth-input" type="text" placeholder="Enter your email" required aria-required="true" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 transition-all text-lg">
                 </div>
-                <button onclick="validateAuthInput()" class="w-full py-4 rounded-2xl bg-blue-600 font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all">
+                <button type="submit" class="w-full py-4 rounded-2xl bg-blue-600 font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all">
                     Send Verification Code
                 </button>
-                <button onclick="showStep('login-methods')" class="w-full text-sm font-bold text-slate-500 hover:text-slate-300">Back to all methods</button>
-            </div>
+                <button type="button" onclick="showStep('login-methods')" class="w-full text-sm font-bold text-slate-500 hover:text-slate-300">Back to all methods</button>
+            </form>
 
             <!-- OTP Verification -->
-            <div id="otp-verify" class="hidden space-y-8 text-center">
+            <div id="otp-verify" class="hidden space-y-8 text-center" role="region" aria-labelledby="otp-title">
                 <div>
-                    <h3 class="text-xl font-bold mb-2">Verify your account</h3>
+                    <h3 id="otp-title" class="text-xl font-bold mb-2">Verify your account</h3>
                     <p class="text-sm text-slate-400">We've sent a 4-digit code to your device</p>
                 </div>
-                <div class="flex justify-center gap-4">
-                    <input type="text" maxlength="1" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
-                    <input type="text" maxlength="1" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
-                    <input type="text" maxlength="1" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
-                    <input type="text" maxlength="1" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
+                <div class="flex justify-center gap-4" role="group" aria-label="4-digit verification code">
+                    <input id="otp-1" type="text" maxlength="1" aria-label="Digit 1" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
+                    <input id="otp-2" type="text" maxlength="1" aria-label="Digit 2" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
+                    <input id="otp-3" type="text" maxlength="1" aria-label="Digit 3" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
+                    <input id="otp-4" type="text" maxlength="1" aria-label="Digit 4" class="otp-input w-14 h-16 text-2xl font-black text-center bg-white/5 border border-white/10 rounded-2xl focus:outline-none">
                 </div>
                 <button onclick="validateOTP()" class="w-full py-4 rounded-2xl bg-blue-600 font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all">
                     Verify & Continue
@@ -103,21 +129,21 @@
             </div>
 
             <!-- Role Selection -->
-            <div id="role-select" class="hidden space-y-6">
+            <div id="role-select" class="hidden space-y-6" role="region" aria-labelledby="role-title">
                 <div class="text-center mb-6">
-                    <h3 class="text-xl font-bold mb-2">Select your persona</h3>
+                    <h3 id="role-title" class="text-xl font-bold mb-2">Select your persona</h3>
                     <p class="text-sm text-slate-400">Tailoring the experience for you</p>
                 </div>
-                <div class="grid gap-4">
-                    <button onclick="selectRole('fan')" class="role-card group flex items-center gap-4 p-5 rounded-[2rem] border border-white/10 bg-white/5 hover:border-blue-500/50 transition-all text-left">
-                        <div class="w-12 h-12 flex items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">👤</div>
+                <div class="grid gap-4" role="listbox">
+                    <button onclick="selectRole('fan')" class="role-card group flex items-center gap-4 p-5 rounded-[2rem] border border-white/10 bg-white/5 hover:border-blue-500/50 transition-all text-left" role="option">
+                        <div class="w-12 h-12 flex items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all" aria-hidden="true">👤</div>
                         <div>
                             <p class="font-bold text-lg">Fan</p>
                             <p class="text-xs text-slate-500">I'm here to watch the game</p>
                         </div>
                     </button>
-                    <button onclick="selectRole('admin')" class="role-card group flex items-center gap-4 p-5 rounded-[2rem] border border-white/10 bg-white/5 hover:border-blue-500/50 transition-all text-left">
-                        <div class="w-12 h-12 flex items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all">🧠</div>
+                    <button onclick="selectRole('admin')" class="role-card group flex items-center gap-4 p-5 rounded-[2rem] border border-white/10 bg-white/5 hover:border-blue-500/50 transition-all text-left" role="option">
+                        <div class="w-12 h-12 flex items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all" aria-hidden="true">🧠</div>
                         <div>
                             <div class="flex items-center gap-2">
                                 <p class="font-bold text-lg">Admin</p>
@@ -131,17 +157,18 @@
         </div>
 
         <!-- Admin Password Modal -->
-        <div id="admin-pass-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
+        <div id="admin-pass-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+            <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onclick="hideAdminModal()"></div>
             <div class="glass relative w-full max-w-sm rounded-[2.5rem] p-8 border border-white/10">
                 <div class="text-center mb-6">
-                    <span class="text-3xl">🔐</span>
-                    <h3 class="text-xl font-bold mt-4">Restricted Access</h3>
+                    <span class="text-3xl" aria-hidden="true">🔐</span>
+                    <h3 id="admin-modal-title" class="text-xl font-bold mt-4">Restricted Access</h3>
                     <p class="text-[10px] text-slate-500 mt-2 uppercase tracking-widest">Admin Authorization Required</p>
                 </div>
                 <div class="space-y-4">
+                    <label for="admin-password" class="sr-only">Access Code</label>
                     <input id="admin-password" type="password" placeholder="••••" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 transition-all text-center text-2xl tracking-[0.5em]">
-                    <p id="admin-error" class="text-rose-500 text-[10px] font-bold text-center hidden uppercase tracking-widest">Incorrect Access Code</p>
+                    <p id="admin-error" class="text-rose-500 text-[10px] font-bold text-center hidden uppercase tracking-widest" role="alert">Incorrect Access Code</p>
                     <button onclick="checkAdminPassword()" class="w-full py-4 rounded-2xl bg-indigo-600 font-bold text-lg shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all">Authorize</button>
                     <button onclick="hideAdminModal()" class="w-full text-xs font-bold text-slate-500 uppercase tracking-widest py-2">Cancel</button>
                 </div>
@@ -149,10 +176,10 @@
         </div>
 
         <!-- Footer Info -->
-        <p class="mt-8 text-center text-slate-500 text-sm">
-            By continuing, you agree to our <span class="text-slate-300">Terms</span> and <span class="text-slate-300">Privacy Policy</span>.
-        </p>
-    </div>
+        <footer class="mt-8 text-center text-slate-500 text-sm">
+            <p>By continuing, you agree to our <span class="text-slate-300">Terms</span> and <span class="text-slate-300">Privacy Policy</span>.</p>
+        </footer>
+    </main>
 
     <script>
         function showStep(stepId, mode) {
@@ -197,8 +224,28 @@
             showStep('role-select');
         }
 
+        function fakeLogin(evt, provider) {
+            if (provider === 'google') {
+                const btn = evt.currentTarget;
+                const originalContent = btn.innerHTML;
+                btn.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <svg class="animate-spin h-5 w-5 text-slate-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-xs font-bold uppercase tracking-widest text-slate-600">Google Identity Auth...</span>
+                    </div>
+                `;
+                btn.disabled = true;
+                setTimeout(() => {
+                    showStep('role-select');
+                }, 1500);
+                return;
+            }
+            showStep('role-select');
+        }
         function selectRole(role) {
-            console.log('Role selected:', role);
             if (role === 'fan') {
                 window.location.href = '/fan';
             } else if (role === 'admin') {
@@ -225,6 +272,68 @@
             document.getElementById('admin-password').value = '';
         }
 
+        // Focus trap for admin modal
+        document.addEventListener('keydown', (e) => {
+            const modal = document.getElementById('admin-pass-modal');
+            if (modal.classList.contains('hidden')) return;
+            if (e.key === 'Escape') { hideAdminModal(); return; }
+            if (e.key !== 'Tab') return;
+            const focusable = modal.querySelectorAll('input, button');
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey) {
+                if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+            } else {
+                if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+        });
+
+        const GOOGLE_CLIENT_ID = '{{ google_identity_client_id }}';
+
+        async function handleGoogleCredential(response) {
+            if (!response || !response.credential) return;
+            try {
+                const res = await fetch('/api/v1/auth/google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ credential: response.credential })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    if (data.user && data.user.name) {
+                        sessionStorage.setItem('google_user_name', data.user.name);
+                    }
+                    showStep('role-select');
+                } else {
+                    showStep('role-select'); // Fallback on verification failure
+                }
+            } catch (e) {
+                showStep('role-select'); // Network error fallback
+            }
+        }
+
+        function initGoogleIdentity() {
+            if (!GOOGLE_CLIENT_ID) return;
+            if (!window.google || !window.google.accounts || !window.google.accounts.id) return;
+            const btn = document.getElementById('google-signin-button');
+            if (!btn) return;
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleGoogleCredential,
+                auto_select: false,
+                cancel_on_tap_outside: true,
+            });
+            google.accounts.id.renderButton(
+                btn,
+                { theme: 'outline', size: 'large', width: btn.offsetWidth || 400, text: 'continue_with', shape: 'rectangular', logo_alignment: 'left' }
+            );
+        }
+
+        // GSI library calls this when fully loaded (preferred over DOMContentLoaded)
+        window.onGoogleLibraryLoad = function() {
+            initGoogleIdentity();
+        };
+
         // Auto-focus next OTP input
         const otpInputs = document.querySelectorAll('.otp-input');
         otpInputs.forEach((input, index) => {
@@ -236,6 +345,24 @@
                     otpInputs[index - 1].focus();
                 }
             });
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!GOOGLE_CLIENT_ID) return;
+            // Fallback: poll until GSI is loaded (handles race conditions)
+            if (window.google && window.google.accounts && window.google.accounts.id) {
+                initGoogleIdentity();
+            } else {
+                let retries = 0;
+                const poll = setInterval(() => {
+                    retries++;
+                    if (window.google && window.google.accounts && window.google.accounts.id) {
+                        clearInterval(poll);
+                        initGoogleIdentity();
+                    }
+                    if (retries > 20) clearInterval(poll);
+                }, 250);
+            }
         });
     </script>
 </body>

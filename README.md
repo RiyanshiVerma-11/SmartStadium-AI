@@ -39,9 +39,9 @@ The differentiator of this project is the **Before vs. After AI** evaluation eng
 
 ### 🏟️ Fan Companion (The Smart Assistant)
 *   **Multimodal AI Assistant**: Integrated **Voice-to-Text** (🎤) and **Text-to-Speech** (🔊) for a hands-free stadium guide experience.
-*   **Interactive Mapping Engine**: Professional-grade **Leaflet.js** integration with real-time zooming, panning, and dynamic polyline routing.
-*   **Dynamic Crowd Heatmaps**: Live-updating heatmap layers that visualize stadium congestion zones as they happen.
-*   **Spatial POI Logic**: Interactive toggles for 🚻 Washrooms, 🍔 Food Stalls, and 🚪 Exits with real-time map markers.
+*   **Interactive Google Maps**: Integrated **Google Maps JavaScript API** with satellite, transit, and professional night-themed layers.
+*   **Dynamic Crowd Heatmaps**: Live-updating heatmap layers powered by **Google Maps Visualization Library**.
+*   **Spatial POI Logic**: Interactive toggles for 🚻 Washrooms, 🍔 Food Stalls, and 🚪 Exits using **Google Maps Markers**.
 *   **Live MatchHub**: Real-time score & clock sync with AI-driven match reactions.
 *   **Predictive Ticketing**: Interactive SVG map with premium seat selection.
 *   **Digital Passport**: VIP QR-code passes with integrated reward point tracking.
@@ -68,8 +68,10 @@ We believe AI should be **Reliable First, Explanatory Second**.
 
 ## 🔌 Google Services & Modern Standards Integration
 
-*   **Google Gemini AI**: Powering the natural language explanation and intent classification.
-*   **Leaflet.js & OpenStreetMap**: Professional geospatial engine for real-time venue navigation.
+*   **Google Maps Platform**: Powering the geospatial engine, heatmaps, and venue navigation with the Google Maps JavaScript API.
+*   **Google Gemini AI**: Powering natural language explanations, intent classification, and accessibility guidance.
+*   **Google Identity Services**: Secure, branded onboarding flow with Google sign-in simulation for fans and staff.
+*   **Google Wallet & Calendar**: Integrated matchday ticketing simulation and calendar sync using Google Wallet and Calendar endpoints.
 *   **Web Speech API**: Powering the multimodal voice-to-text and speech synthesis interface.
 *   **Google Web Standards**: Optimized for low-latency PWA-style performance.
 
@@ -87,7 +89,12 @@ To enable the AI explanatory features:
     ```bash
     cp .env.example .env
     ```
-4.  Paste your key into `.env`: `GEMINI_API_KEY=your_key_here`
+4.  Paste your keys into `.env`:
+    ```bash
+    GEMINI_API_KEY=your_key_here
+    GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+    GOOGLE_IDENTITY_CLIENT_ID=your_google_identity_client_id_here
+    ```
 5.  Restart the application: `docker compose up --build`
 
 ### Option 1: Docker (Recommended)
@@ -134,11 +141,11 @@ SmartStadium AI implements a robust, multi-persona gateway to ensure that only a
 ## 📈 Tech Stack
 - **Backend**: Python 3.11, FastAPI, WebSockets
 - **AI/ML**: Google Gemini 1.5 Pro/Flash, Hybrid Rule Engine
-- **Geospatial**: Leaflet.js, OpenStreetMap, Leaflet.heat
+- **Geospatial**: Google Maps Platform (Maps JS, Visualization, Places)
 - **Multimodal**: Web Speech API (STT & TTS)
 - **Frontend**: Tailwind CSS, Vanilla JS (No-framework speed)
 - **Database**: SQLite (Self-contained persistence)
-- **Infrastructure**: Docker, Docker Compose
+- **Infrastructure**: Google Cloud Platform, Docker, Docker Compose
 
 ---
 
