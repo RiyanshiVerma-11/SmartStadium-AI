@@ -338,6 +338,10 @@
         const otpInputs = document.querySelectorAll('.otp-input');
         otpInputs.forEach((input, index) => {
             input.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    validateOTP();
+                    return;
+                }
                 if (e.target.value.length === 1 && index < otpInputs.length - 1) {
                     otpInputs[index + 1].focus();
                 }
