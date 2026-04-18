@@ -618,7 +618,7 @@
             filtered.forEach(item => {
                 const el = document.createElement('div');
                 el.className = 'flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4';
-                el.innerHTML = `<div><p class="font-bold">${item.icon} ${item.name}</p><p class="mt-1 text-sm" style="color:var(--muted)">${item.desc}</p></div><button onclick="addToCart(${item.price})" aria-label="Add ${item.name} to cart, \u20b9${item.price}" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">+\u20b9${item.price}</button>`;
+                el.innerHTML = `<div><p class="font-bold">${item.icon} ${item.name}</p><p class="mt-1 text-sm" style="color:var(--muted)">${item.desc}</p></div><button onclick="addToCart(this, ${item.price})" aria-label="Add ${item.name} to cart, \u20b9${item.price}" class="rounded-2xl bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700 transition-colors duration-200">+\u20b9${item.price}</button>`;
                 menuWrap.appendChild(el);
             });
         }
@@ -690,7 +690,26 @@
         }
         function updatePointsUI(){document.getElementById('flow-points').innerText=totalPoints;document.getElementById('order-points-balance').innerText=totalPoints;document.getElementById('ticket-points-badge').innerText=totalPoints;document.getElementById('reward-discount-small').disabled=totalPoints<120||activeDiscount>=150;document.getElementById('reward-discount-large').disabled=totalPoints<260||activeDiscount>=400}
         function updateCheckoutTotal(){document.getElementById('checkout-btn').innerText=`Checkout | ₹${Math.max(cartTotal-activeDiscount,0).toFixed(2)}`}
-        function addToCart(price){cartTotal+=price;updateCheckoutTotal()}
+        function addToCart(btn, price) {
+            cartTotal += price;
+            updateCheckoutTotal();
+            
+            // Visual feedback
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Added! ✓';
+            btn.classList.replace('bg-sky-100', 'bg-emerald-100');
+            btn.classList.replace('text-sky-700', 'text-emerald-700');
+            
+            // Screen reader live announcement
+            const announcement = document.getElementById('sos-announcement');
+            if (announcement) announcement.textContent = `Added to cart. Total is now \u20b9${cartTotal}`;
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.replace('bg-emerald-100', 'bg-sky-100');
+                btn.classList.replace('text-emerald-700', 'text-sky-700');
+            }, 1000);
+        }
         function redeemReward(key){if(key==='discount_small'){if(totalPoints<120||activeDiscount>=150)return;totalPoints-=120;activeDiscount+=150;document.getElementById('reward-status').innerText='Applied ₹150 off to your concessions order.'}if(key==='discount_large'){if(totalPoints<260||activeDiscount>=400)return;totalPoints-=260;activeDiscount+=400;document.getElementById('reward-status').innerText='Applied ₹400 off to your concessions order.'}updatePointsUI();updateCheckoutTotal()}
         function submitOrder(){if(cartTotal===0)return;document.getElementById('checkout-btn').classList.add('hidden');document.getElementById('reward-status').parentElement.classList.add('hidden');document.getElementById('order-tracking').classList.remove('hidden');simulateOrderProgress();cartTotal=0; activeDiscount=0;}
         function simulateOrderProgress(){
