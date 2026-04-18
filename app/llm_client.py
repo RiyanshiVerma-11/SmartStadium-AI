@@ -4,6 +4,7 @@ import json
 import asyncio
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
+from cachetools import TTLCache
 
 class AIResponse(BaseModel):
     """
@@ -33,7 +34,9 @@ class GeminiNarrator:
         self.api_key = os.getenv("GEMINI_API_KEY")
         self.model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
-        
+        # 60-second TTL cache for identical scenario states to prevent redundant LLM calls
+        self._cache = TTLCache(maxsize=100, ttl=60)
+
     async def get_decision(self, scenario_label: str, alert_msg: str, stadium_state: Dict[str, Any], user_context: Dict[str, Any]) -> AIResponse:
         """
         Analyze live telemetry using Google Gemini to predict crowd flow and recommend operational actions.
@@ -48,6 +51,11 @@ class GeminiNarrator:
             An AIResponse object containing the structured narrative and recommendations.
             If the API is unavailable, returns a fallback mock response.
         """
+        # Create a unique cache key based on core context
+        cache_key = f"{scenario_label}:{alert_msg}:{user_context.get('seat_section')}:{user_context.get('preferred_gate')}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         if not self.api_key:
             return self._mock_response(alert_msg)
 
@@ -91,7 +99,9 @@ class GeminiNarrator:
                 
                 content = data['candidates'][0]['content']['parts'][0]['text']
                 result = json.loads(content)
-                return AIResponse(**result)
+                ai_response = AIResponse(**result)
+                self._cache[cache_key] = ai_response
+                return ai_response
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 print("Gemini API Rate Limit (429) - Switching to safe local fallback. (Note: Free tier usage limit hit, no charges incurred)")

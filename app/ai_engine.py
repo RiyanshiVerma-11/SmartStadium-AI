@@ -1,4 +1,6 @@
 import re
+import json
+import heapq
 from typing import Any
 
 from pydantic import BaseModel
@@ -31,6 +33,20 @@ class DecisionEngine:
         "gate_a": "north_gate",
         "gate_b": "concourse_a",
         "gate_c": "south_gate",
+        "gate_d": "parking_east",
+    }
+
+    # Lightweight adjacency list for graph-based routing (Seat Section -> Concourse -> Gate)
+    STADIUM_GRAPH = {
+        "112": {"concourse_a": 2, "concourse_b": 5},
+        "113": {"concourse_a": 3, "concourse_c": 4},
+        "concourse_a": {"112": 2, "113": 3, "gate_a": 1, "gate_b": 6},
+        "concourse_b": {"112": 5, "gate_b": 2, "gate_c": 7},
+        "concourse_c": {"113": 4, "gate_c": 3, "gate_d": 4},
+        "gate_a": {"concourse_a": 1},
+        "gate_b": {"concourse_a": 6, "concourse_b": 2},
+        "gate_c": {"concourse_b": 7, "concourse_c": 3},
+        "gate_d": {"concourse_c": 4},
     }
 
     def __init__(self, narrator: Any | None = None):
@@ -269,24 +285,47 @@ class DecisionEngine:
             "action": {"type": "inform", "target": gate_name},
         }
 
-    def _best_gate(self, state: dict[str, Any], preferred_gate: str) -> tuple[str, str, str]:
+    def _best_gate(self, state: dict[str, Any], preferred_gate: str, start_node: str = "112") -> tuple[str, str, str]:
         """
-        Determine the optimal gate based on real-time zone density and user preference.
-
-        Args:
-            state: Current stadium telemetry containing heatmap density levels.
-            preferred_gate: The fan's preferred gate from their profile.
-
-        Returns:
-            A tuple of (Pretty Gate Name, Gate Key, Density Status).
+        Determine the optimal gate using a lightweight graph-based Dijkstra algorithm,
+        incorporating real-time crowd density as dynamic edge weights.
         """
-        ranking = {"low": 0, "medium": 1, "high": 2, "critical": 3}
-        gate_items = sorted(
-            self.GATE_ZONE_MAP.items(),
-            key=lambda item: (ranking[state["heatmaps"][item[1]]], 0 if item[0] == preferred_gate else 1),
-        )
-        gate_key, zone_key = gate_items[0]
-        return self._pretty_label(gate_key), zone_key, state["heatmaps"][zone_key]
+        ranking = {"low": 1.0, "medium": 1.5, "high": 3.0, "critical": 10.0}
+        
+        # Calculate dynamic edge weights based on real-time zone density
+        distances = {node: float('infinity') for node in self.STADIUM_GRAPH}
+        distances[start_node] = 0
+        priority_queue = [(0, start_node)]
+        
+        while priority_queue:
+            current_distance, current_node = heapq.heappop(priority_queue)
+            
+            if current_distance > distances[current_node]:
+                continue
+                
+            for neighbor, weight in self.STADIUM_GRAPH[current_node].items():
+                # Apply density penalties to gates
+                density_penalty = 1.0
+                if neighbor in self.GATE_ZONE_MAP:
+                    zone_key = self.GATE_ZONE_MAP[neighbor]
+                    density = state["heatmaps"][zone_key]
+                    density_penalty = ranking[density]
+                    # Slight bonus for preferred gate
+                    if neighbor == preferred_gate:
+                        density_penalty *= 0.8
+                
+                distance = current_distance + (weight * density_penalty)
+                
+                if distance < distances[neighbor]:
+                    distances[neighbor] = distance
+                    heapq.heappush(priority_queue, (distance, neighbor))
+        
+        # Find the best gate
+        gates = ["gate_a", "gate_b", "gate_c", "gate_d"]
+        best_gate_key = min(gates, key=lambda g: distances[g])
+        zone_key = self.GATE_ZONE_MAP[best_gate_key]
+        
+        return self._pretty_label(best_gate_key), zone_key, state["heatmaps"][zone_key]
 
     @staticmethod
     def _pretty_label(value: str) -> str:

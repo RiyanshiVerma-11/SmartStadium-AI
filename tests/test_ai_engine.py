@@ -9,7 +9,9 @@ def base_state():
         "heatmaps": {
             "north_gate": "medium",
             "concourse_a": "low",
-            "south_gate": "critical"
+            "south_gate": "critical",
+            "concourse_b": "medium",
+            "parking_east": "low"
         },
         "wait_times_minutes": {
             "restrooms": 3,
@@ -52,12 +54,12 @@ async def test_handle_emergency(base_state):
 @pytest.mark.asyncio
 async def test_best_gate(base_state):
     engine = DecisionEngine()
-    # Concourse A is 'low', so it should be picked
+    # Gate A is closer than Gate B from section 112 in the graph
     profile = FanProfile(preferred_gate="gate_b")
     gate_name, zone, status = engine._best_gate(base_state, profile.preferred_gate)
-    assert gate_name == "Gate B"
-    assert zone == "concourse_a"
-    assert status == "low"
+    assert gate_name == "Gate A"
+    assert zone == "north_gate"
+    assert status == "medium"
 
 @pytest.mark.asyncio
 async def test_handle_food(base_state):

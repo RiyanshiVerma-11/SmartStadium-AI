@@ -1,29 +1,30 @@
 import json
-import sqlite3
+import aiosqlite
 from pathlib import Path
 from typing import Any
 
-
 class Storage:
     """
-    SQLite-based persistence layer for logging stadium events, AI decisions, and telemetry.
-    Ensures all critical actions and sensor snapshots are recorded for audit and analysis.
+    Asynchronous SQLite-based persistence layer for logging stadium events, AI decisions, and telemetry.
+    Ensures all critical actions and sensor snapshots are recorded for audit and analysis without blocking the event loop.
     """
     def __init__(self, db_path: Path):
         """Initialize the storage layer with a specific database path."""
         self.db_path = db_path
-
-    def _connect(self) -> sqlite3.Connection:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+
+    def _connect(self) -> aiosqlite.Connection:
+        # aiosqlite.connect returns a context manager that provides a Connection
+        conn = aiosqlite.connect(self.db_path)
         return conn
 
-    def initialize(self) -> None:
+    async def initialize(self) -> None:
         """Create necessary database tables if they do not already exist."""
-        with self._connect() as conn:
-            conn.executescript(
+        async with self._connect() as conn:
+            conn.row_factory = aiosqlite.Row
+            await conn.executescript(
                 """
+                PRAGMA journal_mode=WAL;
                 CREATE TABLE IF NOT EXISTS event_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -60,41 +61,45 @@ class Storage:
                 );
                 """
             )
+            await conn.commit()
 
-    def log_event(self, event_type: str, scenario: str, severity: str, summary: str, details: dict[str, Any]) -> None:
+    async def log_event(self, event_type: str, scenario: str, severity: str, summary: str, details: dict[str, Any]) -> None:
         """Log a high-level stadium event or scenario change."""
-        with self._connect() as conn:
-            conn.execute(
+        async with self._connect() as conn:
+            await conn.execute(
                 """
                 INSERT INTO event_log (event_type, scenario, severity, summary, details_json)
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (event_type, scenario, severity, summary, json.dumps(details)),
             )
+            await conn.commit()
 
-    def insert_ai_query(self, scenario: str, prompt: str, profile: dict[str, Any], response: dict[str, Any]) -> None:
-        with self._connect() as conn:
-            conn.execute(
+    async def insert_ai_query(self, scenario: str, prompt: str, profile: dict[str, Any], response: dict[str, Any]) -> None:
+        async with self._connect() as conn:
+            await conn.execute(
                 """
                 INSERT INTO ai_queries (scenario, prompt, profile_json, response_json)
                 VALUES (?, ?, ?, ?)
                 """,
                 (scenario, prompt, json.dumps(profile), json.dumps(response)),
             )
+            await conn.commit()
 
-    def log_operator_action(self, action: str, scenario: str, actor: str, details: dict[str, Any]) -> None:
-        with self._connect() as conn:
-            conn.execute(
+    async def log_operator_action(self, action: str, scenario: str, actor: str, details: dict[str, Any]) -> None:
+        async with self._connect() as conn:
+            await conn.execute(
                 """
                 INSERT INTO operator_actions (action, scenario, actor, details_json)
                 VALUES (?, ?, ?, ?)
                 """,
                 (action, scenario, actor, json.dumps(details)),
             )
+            await conn.commit()
 
-    def insert_snapshot(self, snapshot: dict[str, Any]) -> None:
-        with self._connect() as conn:
-            conn.execute(
+    async def insert_snapshot(self, snapshot: dict[str, Any]) -> None:
+        async with self._connect() as conn:
+            await conn.execute(
                 """
                 INSERT INTO telemetry_snapshots (scenario, snapshot_json)
                 VALUES (?, ?)
@@ -102,7 +107,7 @@ class Storage:
                 (snapshot["scenario"], json.dumps(snapshot)),
             )
             # Prevent unbounded growth — keep only the most recent 200 snapshots
-            conn.execute(
+            await conn.execute(
                 """
                 DELETE FROM telemetry_snapshots
                 WHERE id NOT IN (
@@ -110,11 +115,12 @@ class Storage:
                 )
                 """
             )
+            await conn.commit()
 
-
-    def get_dashboard_analytics(self, scenario: str) -> dict[str, Any]:
-        with self._connect() as conn:
-            stats = conn.execute(
+    async def get_dashboard_analytics(self, scenario: str) -> dict[str, Any]:
+        async with self._connect() as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
                 """
                 SELECT
                     (SELECT COUNT(*) FROM telemetry_snapshots WHERE scenario = ?) AS snapshot_count,
@@ -123,9 +129,10 @@ class Storage:
                     (SELECT COUNT(*) FROM event_log WHERE scenario = ?) AS alert_count
                 """,
                 (scenario, scenario, scenario, scenario),
-            ).fetchone()
+            ) as cursor:
+                stats = await cursor.fetchone()
 
-            history_rows = conn.execute(
+            async with conn.execute(
                 """
                 SELECT created_at, severity, summary
                 FROM event_log
@@ -134,9 +141,10 @@ class Storage:
                 LIMIT 6
                 """,
                 (scenario,),
-            ).fetchall()
+            ) as cursor:
+                history_rows = await cursor.fetchall()
 
-            query_rows = conn.execute(
+            async with conn.execute(
                 """
                 SELECT created_at, prompt, response_json
                 FROM ai_queries
@@ -145,7 +153,8 @@ class Storage:
                 LIMIT 5
                 """,
                 (scenario,),
-            ).fetchall()
+            ) as cursor:
+                query_rows = await cursor.fetchall()
 
         return {
             "totals": {

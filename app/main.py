@@ -2,6 +2,10 @@ import asyncio
 import json
 import os
 import time
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("SmartStadium-API")
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -110,13 +114,22 @@ def build_snapshot() -> dict[str, Any]:
     profile = dict(GLOBAL_STATE["current_profile"])
     preferred_gate = profile.get("preferred_gate", "gate_c")
     accessibility = profile.get("accessibility_need", "none")
+    
+    # Dynamically calculate the shortest graph path
+    temp_state = {"heatmaps": dict(frame["heatmaps"])}
+    try:
+        engine = app.state.decision_engine
+        _, calculated_gate_key, _ = engine._best_gate(temp_state, preferred_gate, str(profile.get("seat_section", "112")))
+    except Exception:
+        calculated_gate_key = preferred_gate
+
     bounty_points = 60 if scenario_key in {"peak_rush", "gate_closure"} else 35
 
     bounties = [
         {
-            "target": preferred_gate,
+            "target": calculated_gate_key,
             "points": f"+{bounty_points}",
-            "reason": f"Use {preferred_gate.replace('_', ' ').title()} to reduce crowding and improve reroute success.",
+            "reason": f"Use {calculated_gate_key.replace('_', ' ').title()} to reduce crowding and improve reroute success.",
         }
     ]
     if frame["wait_times_minutes"]["food_stalls"] <= 12:
@@ -129,12 +142,12 @@ def build_snapshot() -> dict[str, Any]:
         )
 
     personalized_route = {
-        "best_gate": preferred_gate,
+        "best_gate": calculated_gate_key,
         "seat_section": profile.get("seat_section", "112"),
         "accessibility_route": (
             "Use the low-slope East Hall corridor with elevator access."
             if accessibility != "none"
-            else "Use the shortest marked path through Gate C toward Section 112."
+            else f"Use the shortest marked path through {calculated_gate_key.replace('_', ' ').title()} toward Section {profile.get('seat_section', '112')}."
         ),
         "food_pickup": "Suite lane pickup" if profile.get("ticket_type") == "vip" else "Express cart near Concourse A",
     }
@@ -215,16 +228,19 @@ def build_snapshot() -> dict[str, Any]:
 async def update_state_task():
     """Background task to update stadium state periodically."""
     while True:
-        snapshot = build_snapshot()
-        GLOBAL_STATE["last_snapshot"] = snapshot
-        persist_snapshot(snapshot)
+        try:
+            snapshot = build_snapshot()
+            GLOBAL_STATE["last_snapshot"] = snapshot
+            await persist_snapshot(snapshot)
+        except Exception as e:
+            logger.error(f"Error in background state update: {e}")
         await asyncio.sleep(3)  # Reduced frequency for efficiency
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     storage = Storage(DB_PATH)
-    storage.initialize()
+    await storage.initialize()
     narrator = GeminiNarrator()
     decision_engine = DecisionEngine(narrator=narrator)
     app.state.storage = storage
@@ -257,10 +273,10 @@ def get_decision_engine() -> DecisionEngine:
     return app.state.decision_engine
 
 
-def persist_snapshot(snapshot: dict[str, Any]) -> None:
-    get_storage().insert_snapshot(snapshot)
+async def persist_snapshot(snapshot: dict[str, Any]) -> None:
+    await get_storage().insert_snapshot(snapshot)
     for alert in snapshot["alerts"]:
-        get_storage().log_event(
+        await get_storage().log_event(
             event_type="alert",
             scenario=snapshot["scenario"],
             severity=alert["type"],
@@ -367,12 +383,13 @@ async def get_snapshot():
 @app.post("/api/v1/panic")
 async def toggle_panic():
     GLOBAL_STATE["panic_mode"] = not GLOBAL_STATE["panic_mode"]
-    get_storage().log_operator_action(
+    await get_storage().log_operator_action(
         action="panic_toggle",
         scenario=GLOBAL_STATE["scenario"],
         actor="staff_operator",
         details={"panic_mode": GLOBAL_STATE["panic_mode"]},
     )
+    logger.info(f"Panic mode toggled to: {GLOBAL_STATE['panic_mode']}")
     return {"status": "success", "panic_mode": GLOBAL_STATE["panic_mode"]}
 
 
@@ -383,19 +400,20 @@ async def set_scenario(payload: ScenarioRequest):
 
     GLOBAL_STATE["scenario"] = payload.scenario
     GLOBAL_STATE["tick"] = 0
-    get_storage().log_operator_action(
+    await get_storage().log_operator_action(
         action="scenario_change",
         scenario=GLOBAL_STATE["scenario"],
         actor="staff_operator",
         details={"scenario": payload.scenario},
     )
+    logger.info(f"Scenario changed to: {payload.scenario}")
     return {"status": "success", "scenario": GLOBAL_STATE["scenario"]}
 
 
 @app.post("/api/v1/profile")
 async def update_profile(payload: ProfileRequest):
     GLOBAL_STATE["current_profile"] = payload.model_dump()
-    get_storage().log_operator_action(
+    await get_storage().log_operator_action(
         action="profile_update",
         scenario=GLOBAL_STATE["scenario"],
         actor="fan_user",
@@ -406,16 +424,19 @@ async def update_profile(payload: ProfileRequest):
 
 @app.post("/api/v1/ask_ai")
 async def ask_ai(payload: AskAIRequest):
+    start_time = time.time()
     profile = payload.profile or FanProfile(**GLOBAL_STATE["current_profile"])
     snapshot = build_snapshot()
     response = await get_decision_engine().evaluate(snapshot, payload.prompt, profile)
-    get_storage().insert_ai_query(
+    
+    await get_storage().insert_ai_query(
         scenario=snapshot["scenario"],
         prompt=payload.prompt,
         profile=profile.model_dump(),
         response=response,
     )
-    persist_snapshot(snapshot)
+    await persist_snapshot(snapshot)
+    logger.info(f"AI Query Processed in {(time.time() - start_time) * 1000:.2f}ms")
     return {
         "status": "success",
         "scenario": snapshot["scenario"],
@@ -433,10 +454,11 @@ async def ask_ai(payload: AskAIRequest):
 @app.get("/api/v1/analytics")
 async def analytics():
     snapshot = GLOBAL_STATE["last_snapshot"] or build_snapshot()
+    analytics_data = await get_storage().get_dashboard_analytics(snapshot["scenario"])
     return {
         "status": "success",
         "snapshot": snapshot,
-        "analytics": get_storage().get_dashboard_analytics(snapshot["scenario"]),
+        "analytics": analytics_data,
         "google_cloud_status": {
             "api_health": "100%",
             "gemini_latency_ms": 42,
@@ -446,9 +468,22 @@ async def analytics():
     }
 
 
+import uuid
+ACTIVE_WS_CONNECTIONS = 0
+MAX_WS_CONNECTIONS = 5000
+
 @app.websocket("/ws/data")
 async def websocket_endpoint(websocket: WebSocket):
+    global ACTIVE_WS_CONNECTIONS
+    if ACTIVE_WS_CONNECTIONS >= MAX_WS_CONNECTIONS:
+        logger.warning("WebSocket rate limit exceeded: rejecting connection.")
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
+    ACTIVE_WS_CONNECTIONS += 1
+    client_id = str(uuid.uuid4())
+    logger.debug(f"WS Connected {client_id}. Total: {ACTIVE_WS_CONNECTIONS}")
     try:
         last_tick = -1
         while True:
@@ -456,6 +491,8 @@ async def websocket_endpoint(websocket: WebSocket):
             if snapshot and snapshot.get("timestamp") != last_tick:
                 await websocket.send_text(json.dumps(snapshot))
                 last_tick = snapshot.get("timestamp")
-            await asyncio.sleep(1) # Check more frequently but send only on update
+            await asyncio.sleep(1) # Broadcast rate limiting (1 sec pulse)
     except WebSocketDisconnect:
-        pass
+        logger.debug(f"WS Disconnected {client_id}")
+    finally:
+        ACTIVE_WS_CONNECTIONS -= 1

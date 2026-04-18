@@ -6,3 +6,5 @@ httpx
 google-auth
 itsdangerous
 pydantic
+aiosqlite
+cachetools
