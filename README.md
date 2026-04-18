@@ -3,7 +3,7 @@
 > **"This system doesn’t just monitor stadiums — it makes real-time decisions to prevent chaos."**
 
 🔴 **Live Demo:** [https://smartstadium-ai.onrender.com](https://smartstadium-ai.onrender.com)
-*(Note: Requires valid Google Maps & Gemini API keys configured in the environment)*
+🔐 **Demo Access:** Pre-configured environment (no setup required)
 
 ---
 
@@ -20,6 +20,30 @@ Large-scale events face systemic, dangerous failures:
 **SmartStadium AI is a real-time Decision Support System.** In the chaos of a 90,000-seat arena, our AI acts as the central brain. It analyzes live crowd telemetry to predict surges *before* they happen, automatically reroutes fans to optimal exits, and provides personalized, accessibility-aware guidance through a multimodal AI assistant. 
 
 It bridges the gap between the Command Center (seeing the big picture) and the Fan (navigating the physical space).
+
+## 🧩 Example Scenario: Halftime Rush
+
+At halftime, Gate A reaches 92% capacity.
+
+→ **Without SmartStadium:**
+Fans continue moving blindly → congestion → delays
+
+→ **With SmartStadium:**
+- AI detects surge in 5 seconds
+- Instantly reroutes 40% traffic to Gate C
+- Push notification sent to fans
+- Staff dashboard highlights critical zones
+
+**Result:** Congestion avoided before it becomes dangerous.
+
+## ⚖️ Why SmartStadium is Different
+
+| Traditional Systems | SmartStadium AI |
+|--------------------|----------------|
+| Reactive dashboards | Predictive decision engine |
+| Manual intervention | Automated rerouting |
+| Static maps | Real-time adaptive routing |
+| No personalization | Accessibility-aware navigation |
 
 ---
 
@@ -114,9 +138,22 @@ SmartStadium is designed for everyone:
 
 High-stakes environments require unbreakable code.
 
-- **Unit tests implemented using `pytest`** covering core routing algorithms and LLM fallbacks.
-- **Test Coverage: 86%** across the core `DecisionEngine` and backend API endpoints.
-- **Failsafe Mechanisms**: If Gemini is rate-limited, the system falls back to a deterministic pathfinding graph instantly.
+- **Unit tests implemented using `pytest`** covering core routing algorithms, deterministic intent handlers, and LLM API fallbacks.
+- **Verified Test Coverage: 83%** across the entire backend architecture.
+- **Failsafe Mechanisms**: If Gemini is rate-limited, the system falls back to a deterministic pathfinding graph instantly (proven via automated test `test_get_decision_fallback`).
+
+```text
+=============================== tests coverage ================================
+Name                    Stmts   Miss  Cover
+-------------------------------------------
+app\ai_engine.py          103     20    81%
+app\llm_client.py          43      4    91%
+app\main.py               181     33    82%
+app\storage.py             34      5    85%
+-------------------------------------------
+TOTAL                     363     62    83%
+============================= 13 passed in 2.60s ==============================
+```
 
 ---
 
@@ -161,6 +198,23 @@ uvicorn app.main:app --reload
 - **Frontend**: Tailwind CSS, Vanilla JS (Zero-framework for maximum speed)
 - **Database**: SQLite (Self-contained, WAL-mode enabled)
 - **Deployment**: Docker, Render
+
+---
+
+## 🔮 Future Scope
+
+- Integration with IoT sensors for real crowd telemetry
+- Reinforcement learning for adaptive routing optimization
+- Digital twin simulation of stadium environments
+- Integration with emergency services APIs
+
+## 🏁 Final Thoughts
+
+SmartStadium AI is not just a project — it’s a step toward building safer, smarter, and more human-centric large-scale environments.
+
+By combining real-time data, AI reasoning, and accessibility-first design, we aim to redefine how public spaces operate under pressure.
+
+The future of stadiums isn’t just connected — it’s intelligent.
 
 ---
 **Built with ❤️ for the Google PromptWars Hackathon.**

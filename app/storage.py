@@ -5,7 +5,12 @@ from typing import Any
 
 
 class Storage:
+    """
+    SQLite-based persistence layer for logging stadium events, AI decisions, and telemetry.
+    Ensures all critical actions and sensor snapshots are recorded for audit and analysis.
+    """
     def __init__(self, db_path: Path):
+        """Initialize the storage layer with a specific database path."""
         self.db_path = db_path
 
     def _connect(self) -> sqlite3.Connection:
@@ -15,6 +20,7 @@ class Storage:
         return conn
 
     def initialize(self) -> None:
+        """Create necessary database tables if they do not already exist."""
         with self._connect() as conn:
             conn.executescript(
                 """
@@ -56,6 +62,7 @@ class Storage:
             )
 
     def log_event(self, event_type: str, scenario: str, severity: str, summary: str, details: dict[str, Any]) -> None:
+        """Log a high-level stadium event or scenario change."""
         with self._connect() as conn:
             conn.execute(
                 """

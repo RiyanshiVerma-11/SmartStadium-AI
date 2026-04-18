@@ -5,6 +5,17 @@ from pydantic import BaseModel
 
 
 class FanProfile(BaseModel):
+    """
+    Data model representing a fan's preferences and context.
+    
+    Attributes:
+        name: The fan's display name.
+        seat_section: The fan's assigned seating section.
+        preferred_gate: The fan's default or preferred entry/exit gate.
+        food_preference: Dietary preference for concession routing.
+        accessibility_need: Specific accessibility requirements (e.g., wheelchair).
+        ticket_type: The tier of the ticket (e.g., vip, standard).
+    """
     name: str = "Guest 112"
     seat_section: str = "112"
     preferred_gate: str = "gate_c"
@@ -23,9 +34,28 @@ class DecisionEngine:
     }
 
     def __init__(self, narrator: Any | None = None):
+        """
+        Initialize the DecisionEngine.
+
+        Args:
+            narrator: An optional LLM client (e.g., GeminiNarrator) used to provide
+                      natural language explanations and advanced reasoning.
+        """
         self.narrator = narrator
 
     async def evaluate(self, state: dict[str, Any], prompt: str, profile: FanProfile) -> dict[str, Any]:
+        """
+        Evaluate a fan's query against the current stadium state to generate a decision.
+
+        Args:
+            state: The current telemetry and operational state of the stadium.
+            prompt: The fan's raw natural language query.
+            profile: The FanProfile object containing user preferences.
+
+        Returns:
+            A dictionary containing the calculated intent, deterministic response, 
+            and optional LLM narrative augmentation.
+        """
         query = (prompt or "").strip()
         lowered = query.lower()
         intent = self._detect_intent(lowered)
@@ -70,6 +100,15 @@ class DecisionEngine:
         return response
 
     def _detect_intent(self, lowered: str) -> str:
+        """
+        Determine the core intent of a query using keyword heuristics.
+
+        Args:
+            lowered: The lowercase user query string.
+
+        Returns:
+            A string representing the classified intent (e.g., 'emergency', 'food').
+        """
         if re.search(r"\b(emergency|help|lost child|injured|fire|stampede|panic|evacuate|suspicious)\b", lowered):
             return "emergency"
         if re.search(r"\b(shortest|least crowded|fastest|quickest)\b", lowered):
@@ -85,6 +124,17 @@ class DecisionEngine:
         return "general"
 
     def _handle_emergency(self, state: dict[str, Any], query: str, profile: FanProfile) -> dict[str, Any]:
+        """
+        Handle safety-critical emergency intents by prioritizing immediate intervention.
+
+        Args:
+            state: Current stadium telemetry.
+            query: The user's query.
+            profile: The user's profile.
+
+        Returns:
+            A high-severity decision dict with escalation priority.
+        """
         message = (
             f"{profile.name}, I am escalating this to stadium staff now. Stay where you are if it is safe "
             "and move toward the nearest marked staff point."
@@ -220,6 +270,16 @@ class DecisionEngine:
         }
 
     def _best_gate(self, state: dict[str, Any], preferred_gate: str) -> tuple[str, str, str]:
+        """
+        Determine the optimal gate based on real-time zone density and user preference.
+
+        Args:
+            state: Current stadium telemetry containing heatmap density levels.
+            preferred_gate: The fan's preferred gate from their profile.
+
+        Returns:
+            A tuple of (Pretty Gate Name, Gate Key, Density Status).
+        """
         ranking = {"low": 0, "medium": 1, "high": 2, "critical": 3}
         gate_items = sorted(
             self.GATE_ZONE_MAP.items(),

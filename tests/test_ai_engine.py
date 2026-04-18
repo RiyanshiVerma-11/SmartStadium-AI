@@ -1,80 +1,80 @@
-import asyncio
-
+import pytest
 from app.ai_engine import DecisionEngine, FanProfile
 
-
-def test_emergency_intent_is_critical():
-    engine = DecisionEngine()
-    state = {
-        "scenario": "medical_emergency",
-        "heatmaps": {"north_gate": "medium", "south_gate": "low", "concourse_a": "high"},
-        "wait_times_minutes": {"restrooms": 4, "food_stalls": 9},
-        "directives": {
-            "escalation_priority": "high",
-            "staffing_recommendation": {"summary": "Medical corridor protection required."},
+@pytest.fixture
+def base_state():
+    return {
+        "scenario_label": "Normal Operation",
+        "scenario": "normal",
+        "heatmaps": {
+            "north_gate": "medium",
+            "concourse_a": "low",
+            "south_gate": "critical"
         },
-        "evaluation": {"improvements": {"avg_wait_improvement_pct": 32}},
+        "wait_times_minutes": {
+            "restrooms": 3,
+            "food_stalls": 5
+        },
         "route_plan": {
-            "food_pickup": "Suite lane pickup",
-            "accessibility_route": "Use the low-slope East Hall corridor with elevator access.",
+            "food_pickup": "Express Lane 2",
+            "accessibility_route": "Use Elevator B"
         },
-        "emergency_override": False,
+        "evaluation": {
+            "improvements": {"avg_wait_improvement_pct": 12}
+        },
+        "directives": {
+            "escalation_priority": "low",
+            "staffing_recommendation": {"summary": "All good"}
+        }
     }
 
-    result = asyncio.run(engine.evaluate(state, "Help there is an injured fan", FanProfile()))
+@pytest.mark.asyncio
+async def test_detect_intent():
+    engine = DecisionEngine()
+    assert engine._detect_intent("Where is the nearest restroom?") == "restroom"
+    assert engine._detect_intent("I am hungry, I want food") == "food"
+    assert engine._detect_intent("Help there is a fire!") == "emergency"
+    assert engine._detect_intent("Which gate has the shortest line") == "shortest_line"
+    assert engine._detect_intent("Where is the wheelchair ramp") == "accessibility"
+    assert engine._detect_intent("Just saying hello") == "general"
+
+@pytest.mark.asyncio
+async def test_handle_emergency(base_state):
+    engine = DecisionEngine()
+    profile = FanProfile(name="John")
+    result = await engine.evaluate(base_state, "Help injured fan", profile)
+    
     assert result["intent"] == "emergency"
     assert result["severity"] == "critical"
+    assert "John" in result["message"]
     assert result["action"]["type"] == "alert_staff"
 
-
-def test_shortest_line_prefers_profile_gate_when_safe():
+@pytest.mark.asyncio
+async def test_best_gate(base_state):
     engine = DecisionEngine()
-    state = {
-        "scenario": "normal",
-        "heatmaps": {"north_gate": "low", "south_gate": "low", "concourse_a": "medium"},
-        "wait_times_minutes": {"restrooms": 3, "food_stalls": 7},
-        "directives": {
-            "escalation_priority": "medium",
-            "staffing_recommendation": {"summary": "Balanced staffing is sufficient."},
-        },
-        "evaluation": {"improvements": {"avg_wait_improvement_pct": 28}},
-        "route_plan": {
-            "food_pickup": "Suite lane pickup",
-            "accessibility_route": "Use the shortest marked path through Gate C toward Section 112.",
-        },
-        "emergency_override": False,
-    }
+    # Concourse A is 'low', so it should be picked
+    profile = FanProfile(preferred_gate="gate_b")
+    gate_name, zone, status = engine._best_gate(base_state, profile.preferred_gate)
+    assert gate_name == "Gate B"
+    assert zone == "concourse_a"
+    assert status == "low"
 
-    result = asyncio.run(engine.evaluate(state, "What is the fastest line?", FanProfile(preferred_gate="gate_c")))
-    assert result["intent"] == "shortest_line"
-    assert "Gate" in result["message"]
-    assert result["provider"] == "rules"
-
-
-def test_accessibility_intent_returns_route():
+@pytest.mark.asyncio
+async def test_handle_food(base_state):
     engine = DecisionEngine()
-    state = {
-        "scenario": "weather_delay",
-        "heatmaps": {"north_gate": "medium", "south_gate": "medium", "concourse_a": "critical"},
-        "wait_times_minutes": {"restrooms": 11, "food_stalls": 19},
-        "directives": {
-            "escalation_priority": "medium",
-            "staffing_recommendation": {"summary": "Shelter coordination required."},
-        },
-        "evaluation": {"improvements": {"avg_wait_improvement_pct": 40}},
-        "route_plan": {
-            "food_pickup": "Express cart near Concourse A",
-            "accessibility_route": "Use the low-slope East Hall corridor with elevator access.",
-        },
-        "emergency_override": False,
-    }
+    profile = FanProfile(food_preference="vegan")
+    result = await engine.evaluate(base_state, "Where can I get a hot dog", profile)
+    
+    assert result["intent"] == "food"
+    assert "vegan" in result["message"]
+    assert result["action"]["target"] == "food_stalls"
 
-    result = asyncio.run(
-        engine.evaluate(
-            state,
-            "I need wheelchair friendly routing.",
-            FanProfile(accessibility_need="wheelchair", ticket_type="general"),
-        )
-    )
+@pytest.mark.asyncio
+async def test_accessibility(base_state):
+    engine = DecisionEngine()
+    profile = FanProfile()
+    result = await engine.evaluate(base_state, "Need wheelchair access", profile)
+    
     assert result["intent"] == "accessibility"
-    assert "elevator" in result["message"].lower()
+    assert result["message"] == "Use Elevator B"
+    assert result["action"]["target"] == "accessible_path"
