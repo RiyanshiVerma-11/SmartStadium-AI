@@ -9,3 +9,5 @@ itsdangerous
 pydantic
 aiosqlite
 cachetools
+google-generativeai
+numpy

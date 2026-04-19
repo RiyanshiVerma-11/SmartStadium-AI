@@ -2,6 +2,7 @@ import re
 import json
 import heapq
 import time
+import numpy as np
 from typing import Any
 from functools import lru_cache
 
@@ -80,6 +81,16 @@ class DecisionEngine:
         "gate_d": {"concourse_c": 4},
     }
 
+    # Semantic POI Map: Descriptions mapped to Graph Nodes
+    STADIUM_POIS = {
+        "north_gate": "Main entrance at the north side with security checkpoints.",
+        "south_gate": "South entrance near the main parking structure.",
+        "concourse_a": "Main concourse with restrooms, snacks, and burger stalls.",
+        "concourse_b": "Secondary concourse serving the east side seating.",
+        "concourse_c": "West concourse with accessible elevators and premium lounges.",
+        "gate_d": "East exit primarily for parking and ride-share access.",
+    }
+
     def __init__(self, narrator: Any | None = None):
         """
         Initialize the DecisionEngine.
@@ -89,6 +100,31 @@ class DecisionEngine:
                       natural language explanations and advanced reasoning.
         """
         self.narrator = narrator
+        self._poi_embeddings: dict[str, list[float]] = {}
+
+    async def _get_semantic_target(self, query: str) -> str | None:
+        """Use vector similarity to find the best POI match for a query."""
+        if not self.narrator or not hasattr(self.narrator, "get_embedding"):
+            return None
+
+        query_emb = await self.narrator.get_embedding(query)
+        if not query_emb:
+            return None
+
+        # Lazy-load/Cache PO_I embeddings
+        if not self._poi_embeddings:
+            for node_id, description in self.STADIUM_POIS.items():
+                emb = await self.narrator.get_embedding(description)
+                if emb:
+                    self._poi_embeddings[node_id] = emb
+
+        best_node, best_score = None, 0.0
+        for node_id, poi_emb in self._poi_embeddings.items():
+            score = np.dot(query_emb, poi_emb) / (np.linalg.norm(query_emb) * np.linalg.norm(poi_emb))
+            if score > best_score:
+                best_node, best_score = node_id, score
+
+        return best_node if best_score > 0.7 else None
 
     async def evaluate(self, state: dict[str, Any], prompt: str, profile: FanProfile) -> dict[str, Any]:
         """
@@ -106,6 +142,15 @@ class DecisionEngine:
         query = (prompt or "").strip()
         lowered = query.lower()
         intent = self._detect_intent(lowered)
+
+        # Semantic Search Enhancement
+        semantic_node = await self._get_semantic_target(query)
+        if semantic_node:
+            # If we find a specific location, refine the response
+            response = self._handle_general(state, query, profile)
+            response["action"] = {"type": "route", "target": semantic_node}
+            response["message"] = f"I've found the best spot for you! Head toward {self._pretty_label(semantic_node)}."
+            return response
 
         if intent == "emergency":
             response = self._handle_emergency(state, query, profile)

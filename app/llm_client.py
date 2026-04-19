@@ -2,6 +2,7 @@ import os
 import httpx
 import json
 import asyncio
+import google.generativeai as genai
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
 from cachetools import TTLCache
@@ -36,6 +37,24 @@ class GeminiNarrator:
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
         # 60-second TTL cache for identical scenario states to prevent redundant LLM calls
         self._cache = TTLCache(maxsize=100, ttl=60)
+        if self.api_key:
+            genai.configure(api_key=self.api_key)
+
+    async def get_embedding(self, text: str) -> Optional[list[float]]:
+        """Convert text into a vector embedding using Gemini."""
+        try:
+            if not self.api_key:
+                return None
+            
+            result = await genai.embed_content_async(
+                model="models/embedding-001",
+                content=text,
+                task_type="retrieval_query"
+            )
+            return result['embedding']
+        except Exception as e:
+            print(f"Embedding Error: {e}")
+            return None
 
     async def get_decision(self, scenario_label: str, alert_msg: str, stadium_state: Dict[str, Any], user_context: Dict[str, Any]) -> AIResponse:
         """
