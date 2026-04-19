@@ -201,7 +201,7 @@ class DecisionEngine:
         Returns:
             A string representing the classified intent (e.g., 'emergency', 'food').
         """
-        if re.search(r"\b(emergency|help|lost child|injured|fire|stampede|panic|evacuate|suspicious)\b", lowered):
+        if re.search(r"\b(emergency|help|sos|lost child|injured|fire|stampede|panic|evacuate|suspicious)\b", lowered):
             return "emergency"
         if re.search(r"\b(shortest|least crowded|fastest|quickest)\b", lowered):
             return "shortest_line"
@@ -228,7 +228,7 @@ class DecisionEngine:
             A high-severity decision dict with escalation priority.
         """
         message = (
-            f"{profile.name}, I am escalating this to stadium staff now. Stay where you are if it is safe "
+            f"🚨 {profile.name}, EMERGENCY protocols activated. I am escalating this to stadium staff now. Stay where you are if it is safe "
             "and move toward the nearest marked staff point."
         )
         reasoning = (
@@ -248,7 +248,7 @@ class DecisionEngine:
             "confidence": 0.98,
             "escalation_priority": "critical",
             "staffing_recommendation": state["directives"]["staffing_recommendation"]["summary"],
-            "action": {"type": "alert_staff", "priority": "high"},
+            "action": {"type": "alert_staff", "priority": "critical", "ui_effect": "modal_flash"},
         }
 
     def _handle_shortest_line(self, state: dict[str, Any], query: str, profile: FanProfile) -> dict[str, Any]:

@@ -550,8 +550,18 @@
             'gate_a': { lat: 33.9545, lng: -118.3395 },
             'gate_b': { lat: 33.9530, lng: -118.3410 },
             'gate_c': { lat: 33.9520, lng: -118.3385 },
+            'gate_d': { lat: 33.9538, lng: -118.3375 },
             'food': { lat: 33.9538, lng: -118.3400 }
         };
+        const SECTION_COORDS = {
+            '112': { lat: 33.9532, lng: -118.3398 },
+            '113': { lat: 33.9536, lng: -118.3398 },
+            'North Stand': { lat: 33.9542, lng: -118.3392 },
+            'South Stand': { lat: 33.9526, lng: -118.3392 },
+            'East Stand-VIP': { lat: 33.9534, lng: -118.3382 },
+            'West Stand': { lat: 33.9534, lng: -118.3402 }
+        };
+        let startMarker, endMarker;
 
         function initMap() {
             if (map) return;
@@ -621,26 +631,43 @@
             renderTelemetry(localState);
         }
 
-        function drawRoute(target) {
+        function drawRoute(target, origin) {
             if(!map) return;
             if(routePath) routePath.setMap(null);
+            if(startMarker) startMarker.setMap(null);
+            if(endMarker) endMarker.setMap(null);
             
             const t = (target || '').toLowerCase();
-            let endCoords = STADIUM_COORDS;
+            const o = (origin || '').toLowerCase();
+
+            let endCoords = GATE_COORDS['gate_c'];
             if(t.includes('gate a') || t.includes('north') || t.includes('gate_a')) endCoords = GATE_COORDS['gate_a'];
             else if(t.includes('gate b') || t.includes('concourse') || t.includes('gate_b')) endCoords = GATE_COORDS['gate_b'];
             else if(t.includes('gate c') || t.includes('south') || t.includes('gate_c')) endCoords = GATE_COORDS['gate_c'];
+            else if(t.includes('gate d') || t.includes('east') || t.includes('gate_d')) endCoords = GATE_COORDS['gate_d'];
             else if(t.includes('food')) endCoords = GATE_COORDS['food'];
 
+            let startCoords = STADIUM_COORDS;
+            for (let key in SECTION_COORDS) {
+                if (o.includes(key.toLowerCase())) startCoords = SECTION_COORDS[key];
+            }
+
             routePath = new google.maps.Polyline({
-                path: [STADIUM_COORDS, endCoords],
+                path: [startCoords, endCoords],
                 geodesic: true,
                 strokeColor: '#10b981',
                 strokeOpacity: 0.9,
                 strokeWeight: 6,
                 map: map
             });
-            map.panTo(endCoords);
+
+            startMarker = new google.maps.Marker({ position: startCoords, map: map, label: '📍' });
+            endMarker = new google.maps.Marker({ position: endCoords, map: map, label: '🏁' });
+
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend(startCoords);
+            bounds.extend(endCoords);
+            map.fitBounds(bounds, 60);
         }
 
         function toggleVoice() {
@@ -734,8 +761,9 @@
         function navigateToService(key){ 
             const mapping = { 'food_stalls': 'food', 'restrooms': 'gate_c', 'security_check': 'gate_a', 'merch_stand': 'gate_b' };
             const mapKey = mapping[key] || key;
+            const origin = document.getElementById('profile-seat-section').value;
             switchTab('map'); 
-            drawRoute(mapKey); 
+            drawRoute(mapKey, origin); 
             document.getElementById('map-service-note').innerText = `Navigating to ${titleize(key)}...`; 
         }
         function renderQueues(waitTimes){
@@ -810,7 +838,11 @@
             setTimeout(() => { status.innerText = 'Delivered'; progress.style.width = '100%'; msg.innerText = 'Enjoy! Your order has arrived.'; setTimeout(() => { toggleOrderSheet(false); document.getElementById('checkout-btn').classList.remove('hidden'); document.getElementById('reward-status').parentElement.classList.remove('hidden'); document.getElementById('order-tracking').classList.add('hidden'); status.innerText = 'Preparing'; status.className = 'rounded-full bg-sky-100 px-3 py-1 text-[10px] font-bold text-sky-700'; progress.style.width = '15%'; }, 3000); }, 12000);
         }
         function sendReaction(emoji){const btn = event.currentTarget;btn.classList.add('scale-125');setTimeout(() => btn.classList.remove('scale-125'), 200);const floater = document.createElement('div');floater.innerText = emoji;floater.className = 'fixed bottom-40 right-10 z-[120] text-4xl pointer-events-none float-react';document.body.appendChild(floater);setTimeout(() => floater.remove(), 1500);}
-        function toggleSmartPath(){ const s = document.getElementById('best-route').innerText; drawRoute(s); }
+        function toggleSmartPath(){ 
+            const s = document.getElementById('best-route').innerText; 
+            const o = document.getElementById('profile-seat-section').value;
+            drawRoute(s, o); 
+        }
         function appendConversation(text, meta, tone, accessibility, route) {
             const bubble = document.createElement('div');
             bubble.className = tone === 'user' ? 'ml-auto max-w-[85%] rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white' : 'max-w-[85%] rounded-2xl bg-sky-600 px-4 py-3 text-sm text-white';
@@ -913,7 +945,8 @@
                     announcement.textContent = 'SOS activated. Emergency alert sent to stadium staff. Help is on the way.';
                     setTimeout(() => { announcement.textContent = ''; }, 5000);
                 }
-                submitAIQuery('SOS EMERGENCY: I am at Section 112!');
+                const section = document.getElementById('profile-seat-section').value || 'Unknown Section';
+                submitAIQuery(`SOS EMERGENCY: I am at Section ${section}!`);
             }
         }
         const POI_DATA = {
@@ -1022,6 +1055,9 @@
             const impact = document.getElementById('impact-copy');
             if(impact) impact.innerText=`${data.evaluation.improvements.reroute_gain_pct}% reroute gain`;
             applyScenarioMood(data);
+            if (routePath && routePath.getMap()) {
+                drawRoute(data.route_plan.best_gate, data.personalization.seat_section);
+            }
             if(data.match_info){
                 const score = document.getElementById('match-score');
                 const time = document.getElementById('match-time');
@@ -1092,8 +1128,9 @@
             );
             if (result.stadium_state && result.stadium_state.route_plan) {
                 const best = result.stadium_state.route_plan.best_gate;
+                const origin = document.getElementById('profile-seat-section').value;
                 document.getElementById('best-route').innerText = titleize(best);
-                drawRoute(best);
+                drawRoute(best, origin);
             }
         }
         async function loadConfig(){

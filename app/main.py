@@ -77,6 +77,7 @@ GLOBAL_STATE: dict[str, Any] = {
     "latest_announcement": None,
     "last_snapshot": None,
     "last_persisted_alert_keys": set(),
+    "active_sos_alerts": [],
 }
 TRANSLATION_CACHE = TTLCache(maxsize=1000, ttl=1800)
 LOCALIZED_SNAPSHOT_CACHE = TTLCache(maxsize=100, ttl=60)
@@ -317,6 +318,20 @@ def build_snapshot() -> dict[str, Any]:
     }
 
     alerts = list(frame["alerts"])
+
+    # Add persistent SOS alerts to the snapshot so they remain visible in live feeds
+    now = int(time.time())
+    GLOBAL_STATE["active_sos_alerts"] = [a for a in GLOBAL_STATE.get("active_sos_alerts", []) if a.get("expires_at", 0) > now]
+    for sos in GLOBAL_STATE["active_sos_alerts"]:
+        alerts.append({
+            "id": sos.get("id"),
+            "type": sos["type"],
+            "msg": sos["msg"],
+            "reasoning": sos["reasoning"],
+            "play_sound": sos.get("play_sound"),
+            "force_modal": sos.get("force_modal")
+        })
+
     if GLOBAL_STATE["panic_mode"]:
         alerts.append(
             {
@@ -760,6 +775,23 @@ async def ask_ai(payload: AskAIRequest):
         profile=profile.model_dump(),
         response=response,
     )
+
+    # If an emergency intent is detected, escalate it immediately to the event log so staff see it in their alerts panel
+    if response.get("intent") == "emergency":
+        sos_msg = f"🚨 SOS: {profile.name} at Section {profile.seat_section} [{time.strftime('%H:%M:%S')}]"
+        sos_alert = {
+            "id": f"sos-{int(time.time())}-{profile.seat_section}",
+            "type": "critical",
+            "msg": sos_msg,
+            "reasoning": f"Emergency triggered via AI Assistant. Fan Query: {payload.prompt}",
+            "expires_at": int(time.time()) + 180, # Keep in live feeds for 3 minutes
+            "play_sound": "emergency_alarm",
+            "force_modal": True
+        }
+        GLOBAL_STATE["active_sos_alerts"].append(sos_alert)
+        # Inject into current snapshot alerts so it appears in the staff UI immediately
+        snapshot["alerts"].append({"type": sos_alert["type"], "msg": sos_alert["msg"], "reasoning": sos_alert["reasoning"]})
+
     await persist_snapshot(snapshot)
     logger.info(f"AI Query Processed in {(time.time() - start_time) * 1000:.2f}ms")
     return {
