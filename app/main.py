@@ -792,7 +792,7 @@ async def analytics():
             "active_services": [
                 "Maps JavaScript API",
                 "Gemini 1.5 Flash",
-                "Gemini Embeddings (embedding-001)",
+                "Gemini Embeddings (text-embedding-004)",
                 "Cloud Logging",
                 "Cloud Run",
                 "Cloud Text-to-Speech" if GOOGLE_TTS_API_KEY else "Browser Speech Fallback",
