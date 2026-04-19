@@ -167,7 +167,7 @@
                 </div>
                 <div class="space-y-4">
                     <label for="admin-password" class="sr-only">Access Code</label>
-                    <input id="admin-password" type="password" placeholder="••••" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 transition-all text-center text-2xl tracking-[0.5em]">
+                    <input id="admin-password" type="password" placeholder="••••" onkeydown="if(event.key==='Enter'){event.preventDefault();checkAdminPassword();}" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 transition-all text-center text-2xl tracking-[0.5em]">
                     <p id="admin-error" class="text-rose-500 text-[10px] font-bold text-center hidden uppercase tracking-widest" role="alert">Incorrect Access Code</p>
                     <button onclick="checkAdminPassword()" class="w-full py-4 rounded-2xl bg-indigo-600 font-bold text-lg shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all">Authorize</button>
                     <button onclick="hideAdminModal()" class="w-full text-xs font-bold text-slate-500 uppercase tracking-widest py-2">Cancel</button>
@@ -259,7 +259,7 @@
             const error = document.getElementById('admin-error');
             
             if (pass === 'admin123') {
-                window.location.href = '/staff'; // Command Center
+                window.location.href = '/staff?role=admin'; // Command Center
             } else {
                 error.classList.remove('hidden');
                 document.getElementById('admin-password').value = '';
@@ -270,6 +270,17 @@
         function hideAdminModal() {
             document.getElementById('admin-pass-modal').classList.add('hidden');
             document.getElementById('admin-password').value = '';
+        }
+
+        function wireAdminPasswordKeyboard() {
+            const adminInput = document.getElementById('admin-password');
+            if (!adminInput) return;
+            adminInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    checkAdminPassword();
+                }
+            });
         }
 
         // Focus trap for admin modal
@@ -352,6 +363,7 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
+            wireAdminPasswordKeyboard();
             if (!GOOGLE_CLIENT_ID) return;
             // Fallback: poll until GSI is loaded (handles race conditions)
             if (window.google && window.google.accounts && window.google.accounts.id) {

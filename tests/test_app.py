@@ -1,10 +1,12 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, _sign_role
 
 
 def test_toggle_panic():
     with TestClient(app) as client:
+        client.cookies.set("stadium_role", "admin")
+        client.cookies.set("stadium_role_sig", _sign_role("admin"))
         first = client.post("/api/v1/panic")
         second = client.post("/api/v1/panic")
 
@@ -12,6 +14,13 @@ def test_toggle_panic():
     assert second.status_code == 200
     assert isinstance(first.json()["panic_mode"], bool)
     assert isinstance(second.json()["panic_mode"], bool)
+
+
+def test_toggle_panic_requires_admin_role():
+    with TestClient(app) as client:
+        response = client.post("/api/v1/panic")
+
+    assert response.status_code == 403
 
 
 def test_set_supported_scenario():
@@ -70,3 +79,35 @@ def test_profile_update_persists_shape():
 
     assert response.status_code == 200
     assert response.json()["profile"] == payload
+
+
+def test_announcement_preview_uses_free_fallback_without_tts_key(monkeypatch):
+    monkeypatch.setattr("app.main.GOOGLE_TTS_API_KEY", "")
+    with TestClient(app) as client:
+        client.cookies.set("stadium_role", "admin")
+        client.cookies.set("stadium_role_sig", _sign_role("admin"))
+        response = client.post(
+            "/api/v1/announcements",
+            json={"message": "Please use Gate C for the fastest exit flow.", "severity": "warning", "broadcast": False},
+        )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["broadcast"] is False
+    assert body["announcement"]["audio_provider"] == "browser_fallback"
+    assert body["announcement"]["audio_src"] is None
+
+
+def test_announcement_broadcast_updates_snapshot():
+    with TestClient(app) as client:
+        client.cookies.set("stadium_role", "admin")
+        client.cookies.set("stadium_role_sig", _sign_role("admin"))
+        response = client.post(
+            "/api/v1/announcements",
+            json={"message": "Attention fans near Gate A. Please reroute to Gate C.", "severity": "critical"},
+        )
+        snapshot = client.get("/api/v1/snapshot")
+
+    assert response.status_code == 200
+    assert snapshot.status_code == 200
+    assert snapshot.json()["snapshot"]["announcement"]["message"].startswith("Attention fans near Gate A")

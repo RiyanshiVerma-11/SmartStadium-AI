@@ -1,5 +1,7 @@
 import asyncio
 import copy
+import hashlib
+import hmac
 import json
 import os
 import time
@@ -14,6 +16,9 @@ load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 GOOGLE_IDENTITY_CLIENT_ID = os.getenv("GOOGLE_IDENTITY_CLIENT_ID", "")
 GOOGLE_TRANSLATE_API_KEY = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
+GOOGLE_TTS_API_KEY = os.getenv("GOOGLE_TTS_API_KEY", "")
+GOOGLE_TTS_VOICE_NAME = os.getenv("GOOGLE_TTS_VOICE_NAME", "en-US-Neural2-C")
+ROLE_SIGNING_SECRET = os.getenv("SMARTSTADIUM_ROLE_SECRET", "smartstadium-dev-secret")
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -69,7 +74,9 @@ GLOBAL_STATE: dict[str, Any] = {
         "ticket_type": "vip",
         "preferred_language": "en",
     },
+    "latest_announcement": None,
     "last_snapshot": None,
+    "last_persisted_alert_keys": set(),
 }
 TRANSLATION_CACHE = TTLCache(maxsize=1000, ttl=1800)
 
@@ -91,6 +98,13 @@ class GoogleAuthRequest(BaseModel):
     credential: str
 
 
+class AnnouncementRequest(BaseModel):
+    message: str = Field(..., min_length=8, max_length=280)
+    severity: str = Field(default="info", pattern="^(info|warning|critical)$")
+    broadcast: bool = True
+    language: str | None = None
+
+
 def calculate_improvements(before_ai: dict[str, float], after_ai: dict[str, float]) -> dict[str, float]:
     return {
         "avg_wait_improvement_pct": round(
@@ -105,6 +119,130 @@ def calculate_improvements(before_ai: dict[str, float], after_ai: dict[str, floa
         ),
         "guest_satisfaction_gain": round(after_ai["guest_satisfaction"] - before_ai["guest_satisfaction"], 1),
     }
+
+
+def _sign_role(role: str) -> str:
+    return hmac.new(ROLE_SIGNING_SECRET.encode("utf-8"), role.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _verify_role(role: str | None, signature: str | None) -> bool:
+    if not role or not signature:
+        return False
+    expected = _sign_role(role)
+    return hmac.compare_digest(signature, expected)
+
+
+def get_request_role(request: Request) -> str:
+    role = request.cookies.get("stadium_role")
+    signature = request.cookies.get("stadium_role_sig")
+    if _verify_role(role, signature):
+        return role or "fan"
+    return "fan"
+
+
+def require_admin_role(request: Request) -> None:
+    if get_request_role(request) != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required.")
+
+
+def get_http_client() -> httpx.AsyncClient:
+    return app.state.http_client
+
+
+async def synthesize_announcement_audio(message: str, language: str = "en") -> dict[str, Any]:
+    normalized_language = normalize_language(language)
+    if not GOOGLE_TTS_API_KEY:
+        return {
+            "enabled": False,
+            "provider": "browser_fallback",
+            "audio_src": None,
+            "voice_name": None,
+            "language": normalized_language,
+        }
+
+    voice_name = GOOGLE_TTS_VOICE_NAME
+    language_code = "en-US" if normalized_language == "en" else normalized_language
+    payload = {
+        "input": {"text": message},
+        "voice": {
+            "languageCode": language_code,
+            "name": voice_name if normalized_language == "en" else None,
+            "ssmlGender": "NEUTRAL",
+        },
+        "audioConfig": {
+            "audioEncoding": "MP3",
+            "speakingRate": 1.02,
+        },
+    }
+    payload["voice"] = {key: value for key, value in payload["voice"].items() if value}
+    try:
+        response = await get_http_client().post(
+            "https://texttospeech.googleapis.com/v1/text:synthesize",
+            params={"key": GOOGLE_TTS_API_KEY},
+            json=payload,
+        )
+        response.raise_for_status()
+        audio_content = response.json().get("audioContent")
+    except Exception:
+        audio_content = None
+
+    if not audio_content:
+        return {
+            "enabled": False,
+            "provider": "browser_fallback",
+            "audio_src": None,
+            "voice_name": None,
+            "language": normalized_language,
+        }
+
+    return {
+        "enabled": True,
+        "provider": "google_cloud_text_to_speech",
+        "audio_src": f"data:audio/mpeg;base64,{audio_content}",
+        "voice_name": voice_name,
+        "language": normalized_language,
+    }
+
+
+def build_announcement_record(
+    message: str,
+    severity: str,
+    language: str,
+    audio_payload: dict[str, Any],
+) -> dict[str, Any]:
+    created_at = int(time.time())
+    return {
+        "id": f"ann-{created_at}",
+        "message": message,
+        "severity": severity,
+        "language": normalize_language(language),
+        "audio_enabled": audio_payload["enabled"],
+        "audio_provider": audio_payload["provider"],
+        "audio_src": audio_payload["audio_src"],
+        "voice_name": audio_payload["voice_name"],
+        "created_at": created_at,
+        "expires_at": created_at + 180,
+    }
+
+
+def build_match_info(match_tick: int) -> dict[str, str]:
+    """Generate a believable match clock and scoreline for the fan dashboard."""
+    phase_tick = match_tick % 48
+    if phase_tick < 18:
+        minute = 28 + (phase_tick * 2)
+        score = "1 - 0" if minute < 38 else "2 - 1"
+        return {"teams": "Lions vs Tigers", "score": score, "time": f"{minute}'", "status": "live"}
+    if phase_tick < 22:
+        return {"teams": "Lions vs Tigers", "score": "2 - 1", "time": "HT", "status": "halftime"}
+    if phase_tick < 42:
+        second_half_tick = phase_tick - 22
+        minute = 46 + (second_half_tick * 2)
+        score = "2 - 1" if minute < 84 else "3 - 1"
+        if minute <= 90:
+            return {"teams": "Lions vs Tigers", "score": score, "time": f"{minute}'", "status": "live"}
+        stoppage = min(minute - 90, 4)
+        return {"teams": "Lions vs Tigers", "score": score, "time": f"90+{stoppage}'", "status": "live"}
+    return {"teams": "Lions vs Tigers", "score": "3 - 1", "time": "FT", "status": "full_time"}
 
 
 def build_snapshot() -> dict[str, Any]:
@@ -183,10 +321,7 @@ def build_snapshot() -> dict[str, Any]:
         )
 
     # Dynamic Match Simulation
-    match_tick = GLOBAL_STATE["tick"]
-    dynamic_time = 72 + (match_tick // 4)  # Slow clock progression
-    score = "2 - 1"
-    if dynamic_time > 85 and match_tick % 10 == 0: score = "3 - 1" # Goal simulation
+    match_info = build_match_info(GLOBAL_STATE["tick"])
 
     # Dynamic Weather Simulation
     weather_map = {
@@ -209,6 +344,7 @@ def build_snapshot() -> dict[str, Any]:
         "incident_type": scenario["incident_type"],
         "risk_level": scenario["risk_level"],
         "google_services": list(scenario["google_services"]),
+        "announcement": GLOBAL_STATE["latest_announcement"],
         "emergency_override": GLOBAL_STATE["panic_mode"],
         "heatmaps": dict(frame["heatmaps"]),
         "wait_times_minutes": dict(frame["wait_times_minutes"]),
@@ -222,7 +358,7 @@ def build_snapshot() -> dict[str, Any]:
         "directives": directives,
         "personalization": profile,
         "route_plan": personalized_route,
-        "match_info": {"teams": "Lions vs Tigers", "score": score, "time": f"{dynamic_time}'"},
+        "match_info": match_info,
         "weather": {
             "temp": f"{varied_temp}°C",
             "condition": w["cond"],
@@ -258,12 +394,11 @@ async def translate_text(text: str, target_language: str) -> str:
         "source": "en",
     }
     try:
-        async with httpx.AsyncClient(timeout=6.0) as client:
-            response = await client.post(url, params={"key": GOOGLE_TRANSLATE_API_KEY}, json=payload)
-            response.raise_for_status()
-            translated = response.json()["data"]["translations"][0]["translatedText"]
-            TRANSLATION_CACHE[cache_key] = translated
-            return translated
+        response = await get_http_client().post(url, params={"key": GOOGLE_TRANSLATE_API_KEY}, json=payload)
+        response.raise_for_status()
+        translated = response.json()["data"]["translations"][0]["translatedText"]
+        TRANSLATION_CACHE[cache_key] = translated
+        return translated
     except Exception:
         # Fail open to English so emergency messages always remain readable.
         return text
@@ -285,6 +420,15 @@ async def localize_snapshot(snapshot: dict[str, Any], language: str) -> dict[str
     if route.get("accessibility_route"):
         route["accessibility_route"] = await translate_text(route["accessibility_route"], target_language)
 
+    announcement = localized.get("announcement")
+    if announcement and announcement.get("message") and target_language != announcement.get("language"):
+        announcement["message"] = await translate_text(announcement["message"], target_language)
+        announcement["language"] = target_language
+        announcement["audio_enabled"] = False
+        announcement["audio_src"] = None
+        announcement["audio_provider"] = "browser_fallback"
+        announcement["voice_name"] = None
+
     return localized
 
 
@@ -296,6 +440,9 @@ async def update_state_task():
     """Background task to update stadium state periodically."""
     while True:
         try:
+            latest_announcement = GLOBAL_STATE.get("latest_announcement")
+            if latest_announcement and latest_announcement.get("expires_at", 0) <= int(time.time()):
+                GLOBAL_STATE["latest_announcement"] = None
             snapshot = build_snapshot()
             GLOBAL_STATE["last_snapshot"] = snapshot
             await persist_snapshot(snapshot)
@@ -310,8 +457,10 @@ async def lifespan(_: FastAPI):
     await storage.initialize()
     narrator = GeminiNarrator()
     decision_engine = DecisionEngine(narrator=narrator)
+    http_client = httpx.AsyncClient(timeout=10.0)
     app.state.storage = storage
     app.state.decision_engine = decision_engine
+    app.state.http_client = http_client
     
     # Start background state update
     bg_task = asyncio.create_task(update_state_task())
@@ -320,6 +469,7 @@ async def lifespan(_: FastAPI):
     yield
     
     bg_task.cancel()
+    await http_client.aclose()
 
 app = FastAPI(title="SmartStadium AI Premium", lifespan=lifespan)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -329,6 +479,7 @@ def get_template_context() -> dict[str, Any]:
     return {
         "google_maps_api_key": GOOGLE_MAPS_API_KEY,
         "google_identity_client_id": GOOGLE_IDENTITY_CLIENT_ID,
+        "google_tts_enabled": bool(GOOGLE_TTS_API_KEY),
     }
 
 
@@ -342,14 +493,26 @@ def get_decision_engine() -> DecisionEngine:
 
 async def persist_snapshot(snapshot: dict[str, Any]) -> None:
     await get_storage().insert_snapshot(snapshot)
+    current_alert_keys = {
+        f"{snapshot['scenario']}|{alert['type']}|{alert['msg']}"
+        for alert in snapshot["alerts"]
+    }
+    new_alerts = []
     for alert in snapshot["alerts"]:
-        await get_storage().log_event(
-            event_type="alert",
-            scenario=snapshot["scenario"],
-            severity=alert["type"],
-            summary=alert["msg"],
-            details={"reasoning": alert["reasoning"], "risk_level": snapshot["risk_level"]},
-        )
+        alert_key = f"{snapshot['scenario']}|{alert['type']}|{alert['msg']}"
+        if alert_key not in GLOBAL_STATE["last_persisted_alert_keys"]:
+            new_alerts.append(
+                {
+                    "event_type": "alert",
+                    "scenario": snapshot["scenario"],
+                    "severity": alert["type"],
+                    "summary": alert["msg"],
+                    "details": {"reasoning": alert["reasoning"], "risk_level": snapshot["risk_level"]},
+                }
+            )
+    if new_alerts:
+        await get_storage().log_events_batch(new_alerts)
+    GLOBAL_STATE["last_persisted_alert_keys"] = current_alert_keys
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -411,15 +574,20 @@ async def verify_google_token(payload: GoogleAuthRequest):
 
 @app.get("/staff", response_class=HTMLResponse)
 async def staff_app(request: Request):
-    return templates.TemplateResponse(
+    role = request.query_params.get("role", get_request_role(request))
+    normalized_role = "admin" if role == "admin" else "staff"
+    response = templates.TemplateResponse(
         request=request,
         name="staff.html",
-        context={"request": request, **get_template_context()},
+        context={"request": request, "role": normalized_role, **get_template_context()},
     )
+    response.set_cookie("stadium_role", normalized_role, httponly=True, samesite="lax")
+    response.set_cookie("stadium_role_sig", _sign_role(normalized_role), httponly=True, samesite="lax")
+    return response
 
 
 @app.get("/api/v1/config")
-async def get_config():
+async def get_config(request: Request):
     snapshot = GLOBAL_STATE["last_snapshot"] or build_snapshot()
     return {
         "status": "success",
@@ -437,10 +605,12 @@ async def get_config():
             "wait_times_minutes": snapshot["wait_times_minutes"]
         },
         "profile": GLOBAL_STATE["current_profile"],
+        "role": get_request_role(request),
         "llm_enabled": True,
         "translation_enabled": bool(GOOGLE_TRANSLATE_API_KEY),
+        "google_tts_enabled": bool(GOOGLE_TTS_API_KEY),
         "match_info": snapshot["match_info"],
-        "weather": snapshot["weather"]
+        "weather": snapshot["weather"],
     }
 
 
@@ -453,7 +623,8 @@ async def get_snapshot(request: Request):
 
 
 @app.post("/api/v1/panic")
-async def toggle_panic():
+async def toggle_panic(request: Request):
+    require_admin_role(request)
     GLOBAL_STATE["panic_mode"] = not GLOBAL_STATE["panic_mode"]
     await get_storage().log_operator_action(
         action="panic_toggle",
@@ -465,6 +636,48 @@ async def toggle_panic():
     return {"status": "success", "panic_mode": GLOBAL_STATE["panic_mode"]}
 
 
+@app.post("/api/v1/announcements")
+async def create_announcement(payload: AnnouncementRequest, request: Request):
+    require_admin_role(request)
+    language = payload.language or GLOBAL_STATE["current_profile"].get("preferred_language", "en")
+    audio_payload = await synthesize_announcement_audio(payload.message, language)
+    announcement = build_announcement_record(payload.message, payload.severity, language, audio_payload)
+
+    if payload.broadcast:
+        GLOBAL_STATE["latest_announcement"] = announcement
+        if GLOBAL_STATE.get("last_snapshot"):
+            updated_snapshot = build_snapshot()
+            GLOBAL_STATE["last_snapshot"] = updated_snapshot
+            await persist_snapshot(updated_snapshot)
+        await get_storage().log_operator_action(
+            action="broadcast_announcement",
+            scenario=GLOBAL_STATE["scenario"],
+            actor="staff_operator",
+            details={
+                "announcement_id": announcement["id"],
+                "severity": payload.severity,
+                "audio_provider": announcement["audio_provider"],
+            },
+        )
+        await get_storage().log_announcement(
+            scenario=GLOBAL_STATE["scenario"],
+            severity=payload.severity,
+            message=payload.message,
+            audio_provider=announcement["audio_provider"],
+            details={
+                "broadcast": True,
+                "language": announcement["language"],
+                "audio_enabled": announcement["audio_enabled"],
+            },
+        )
+
+    return {
+        "status": "success",
+        "broadcast": payload.broadcast,
+        "announcement": announcement,
+    }
+
+
 @app.post("/api/v1/scenario")
 async def set_scenario(payload: ScenarioRequest):
     if payload.scenario not in SCENARIO_LIBRARY:
@@ -472,6 +685,7 @@ async def set_scenario(payload: ScenarioRequest):
 
     GLOBAL_STATE["scenario"] = payload.scenario
     GLOBAL_STATE["tick"] = 0
+    GLOBAL_STATE["last_persisted_alert_keys"] = set()
     await get_storage().log_operator_action(
         action="scenario_change",
         scenario=GLOBAL_STATE["scenario"],
@@ -535,7 +749,14 @@ async def analytics():
             "api_health": "100%",
             "gemini_latency_ms": 42,
             "maps_usage_quota": "2.4%",
-            "active_services": ["Maps JavaScript API", "Gemini 1.5 Pro", "Cloud Logging", "Cloud Run"]
+            "tts_enabled": bool(GOOGLE_TTS_API_KEY),
+            "active_services": [
+                "Maps JavaScript API",
+                "Gemini 1.5 Pro",
+                "Cloud Logging",
+                "Cloud Run",
+                "Cloud Text-to-Speech" if GOOGLE_TTS_API_KEY else "Browser Speech Fallback",
+            ],
         }
     }
 

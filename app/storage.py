@@ -65,6 +65,16 @@ class Storage:
                     scenario TEXT NOT NULL,
                     snapshot_json TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS announcement_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    scenario TEXT NOT NULL,
+                    severity TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    audio_provider TEXT NOT NULL,
+                    details_json TEXT NOT NULL
+                );
                 """
             )
             await conn.commit()
@@ -123,6 +133,46 @@ class Storage:
             )
             await conn.commit()
 
+    async def log_events_batch(self, events: list[dict[str, Any]]) -> None:
+        if not events:
+            return
+        async with self._connect() as conn:
+            await conn.executemany(
+                """
+                INSERT INTO event_log (event_type, scenario, severity, summary, details_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        event["event_type"],
+                        event["scenario"],
+                        event["severity"],
+                        event["summary"],
+                        json.dumps(event["details"]),
+                    )
+                    for event in events
+                ],
+            )
+            await conn.commit()
+
+    async def log_announcement(
+        self,
+        scenario: str,
+        severity: str,
+        message: str,
+        audio_provider: str,
+        details: dict[str, Any],
+    ) -> None:
+        async with self._connect() as conn:
+            await conn.execute(
+                """
+                INSERT INTO announcement_log (scenario, severity, message, audio_provider, details_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (scenario, severity, message, audio_provider, json.dumps(details)),
+            )
+            await conn.commit()
+
     async def get_dashboard_analytics(self, scenario: str) -> dict[str, Any]:
         async with self._connect() as conn:
             conn.row_factory = aiosqlite.Row
@@ -132,9 +182,10 @@ class Storage:
                     (SELECT COUNT(*) FROM telemetry_snapshots WHERE scenario = ?) AS snapshot_count,
                     (SELECT COUNT(*) FROM ai_queries WHERE scenario = ?) AS ai_query_count,
                     (SELECT COUNT(*) FROM operator_actions WHERE scenario = ?) AS operator_action_count,
-                    (SELECT COUNT(*) FROM event_log WHERE scenario = ?) AS alert_count
+                    (SELECT COUNT(*) FROM event_log WHERE scenario = ?) AS alert_count,
+                    (SELECT COUNT(*) FROM announcement_log WHERE scenario = ?) AS announcement_count
                 """,
-                (scenario, scenario, scenario, scenario),
+                (scenario, scenario, scenario, scenario, scenario),
             ) as cursor:
                 stats = await cursor.fetchone()
 
@@ -162,12 +213,25 @@ class Storage:
             ) as cursor:
                 query_rows = await cursor.fetchall()
 
+            async with conn.execute(
+                """
+                SELECT created_at, severity, message, audio_provider
+                FROM announcement_log
+                WHERE scenario = ?
+                ORDER BY id DESC
+                LIMIT 5
+                """,
+                (scenario,),
+            ) as cursor:
+                announcement_rows = await cursor.fetchall()
+
         return {
             "totals": {
                 "snapshots": stats["snapshot_count"],
                 "ai_queries": stats["ai_query_count"],
                 "operator_actions": stats["operator_action_count"],
                 "alerts": stats["alert_count"],
+                "announcements": stats["announcement_count"],
             },
             "recent_alerts": [
                 {
@@ -184,5 +248,14 @@ class Storage:
                     "response_message": json.loads(row["response_json"]).get("message", ""),
                 }
                 for row in query_rows
+            ],
+            "recent_announcements": [
+                {
+                    "created_at": row["created_at"],
+                    "severity": row["severity"],
+                    "message": row["message"],
+                    "audio_provider": row["audio_provider"],
+                }
+                for row in announcement_rows
             ],
         }

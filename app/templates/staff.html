@@ -301,20 +301,24 @@
                         <p class="section-label">AI Recommendation</p>
                         <p id="ai-suggestion-text" class="mt-2 text-sm font-bold text-slate-800">Waiting for live recommendation...</p>
                         <p class="mt-2 text-xs text-slate-500">Confidence: <span id="ai-suggestion-confidence">0</span>%</p>
+                        <p id="ai-action-status" class="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Pending execution</p>
                         <button id="apply-ai-btn" tabindex="0" onclick="applyAction('ai_apply', this)" class="mt-3 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-700" aria-label="Apply AI recommendation">Apply</button>
                     </div>
                     <div class="mt-4 grid gap-3 sm:grid-cols-3">
-                        <button tabindex="0" onclick="applyAction('redirect_crowd', this)" class="tile sev-high-card p-3 text-left hover:border-sky-400" aria-label="Redirect crowd action">
+                        <button id="action-card-redirect-crowd" tabindex="0" onclick="applyAction('redirect_crowd', this)" class="tile sev-high-card p-3 text-left hover:border-sky-400" aria-label="Redirect crowd action">
                             <p class="section-label">Action</p>
                             <p class="mt-1 text-sm font-bold">Redirect Crowd</p>
+                            <p id="action-status-redirect-crowd" class="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600">Ready</p>
                         </button>
-                        <button tabindex="0" onclick="applyAction('open_gate', this)" class="tile sev-low-card p-3 text-left hover:border-teal-400" aria-label="Open gate action">
+                        <button id="action-card-open-gate" tabindex="0" onclick="applyAction('open_gate', this)" class="tile sev-low-card p-3 text-left hover:border-teal-400" aria-label="Open gate action">
                             <p class="section-label">Action</p>
                             <p class="mt-1 text-sm font-bold">Open Gate</p>
+                            <p id="action-status-open-gate" class="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600">Ready</p>
                         </button>
-                        <button tabindex="0" onclick="applyAction('deploy_staff', this)" class="tile sev-medium-card p-3 text-left hover:border-indigo-400" aria-label="Deploy staff to North Gate">
+                        <button id="action-card-deploy-staff" tabindex="0" onclick="applyAction('deploy_staff', this)" class="tile sev-medium-card p-3 text-left hover:border-indigo-400" aria-label="Deploy staff to North Gate">
                             <p class="section-label">Action</p>
                             <p class="mt-1 text-sm font-bold">Deploy Staff</p>
+                            <p id="action-status-deploy-staff" class="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600">Ready</p>
                         </button>
                     </div>
                     <p id="action-feedback" class="mt-3 text-sm font-semibold text-emerald-700" aria-live="polite"></p>
@@ -326,6 +330,37 @@
                     <div class="mt-4">
                         <p class="section-label">Recommended Actions</p>
                         <div id="recommended-actions" class="mt-3 space-y-2"></div>
+                    </div>
+                    <div class="tile sev-critical-card mt-4 p-4">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <p class="section-label">PA Announcements</p>
+                                <h3 class="mt-1 text-lg font-black text-slate-900">Google Cloud Text-to-Speech</h3>
+                            </div>
+                            <span class="rounded-full border border-slate-300 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-700">
+                                {% if google_tts_enabled %}Cloud Voice Ready{% else %}Free Browser Fallback{% endif %}
+                            </span>
+                        </div>
+                        <textarea id="announcement-message" class="mt-3 min-h-[110px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 outline-none focus:border-sky-500" placeholder="Example: Attention fans near Gate A. Please reroute to Gate C for the fastest exit flow."></textarea>
+                        <div class="mt-3 flex flex-wrap items-center gap-3">
+                            <label for="announcement-severity" class="section-label">Severity</label>
+                            <select id="announcement-severity" class="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700">
+                                <option value="info">Info</option>
+                                <option value="warning">Warning</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                            <button id="preview-announcement-btn" onclick="previewAnnouncement()" class="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-700">Preview Voice</button>
+                            <button id="broadcast-announcement-btn" onclick="broadcastAnnouncement()" class="rounded-full border border-rose-300 bg-gradient-to-r from-slate-900 to-rose-600 px-5 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white">Broadcast To Fans</button>
+                        </div>
+                        <p id="announcement-status" class="mt-3 text-sm font-semibold text-slate-700" aria-live="polite">Compose a live PA message for fans and staff.</p>
+                        <div id="announcement-preview-card" class="mt-3 rounded-2xl border border-slate-200 bg-white/80 p-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="section-label">Latest Broadcast</p>
+                                <span id="announcement-provider" class="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">No announcement yet</span>
+                            </div>
+                            <p id="announcement-live-message" class="mt-2 text-sm font-bold text-slate-800">The latest PA message will appear here.</p>
+                        </div>
+                        <audio id="announcement-audio" class="hidden" preload="none"></audio>
                     </div>
                 </div>
 
@@ -366,7 +401,7 @@
                     <button id="log-filter-actions" tabindex="0" onclick="setLogFilter('actions')" class="rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700">Actions</button>
                 </div>
                 <div id="log-container" class="mt-3 space-y-2"></div>
-                <div class="mt-5 grid gap-4 lg:grid-cols-2">
+                <div class="mt-5 grid gap-4 lg:grid-cols-3">
                     <div>
                         <p class="section-label">Recent Alerts</p>
                         <div id="recent-alerts" class="mt-2 space-y-2"></div>
@@ -375,8 +410,12 @@
                         <p class="section-label">Recent Fan Queries</p>
                         <div id="recent-queries" class="mt-2 space-y-2"></div>
                     </div>
+                    <div>
+                        <p class="section-label">Recent Announcements</p>
+                        <div id="recent-announcements" class="mt-2 space-y-2"></div>
+                    </div>
                 </div>
-                <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                     <div class="tile sev-low-card p-3">
                         <p class="section-label">Snapshots Logged</p>
                         <p id="total-snapshots" class="mt-1 text-2xl font-black">0</p>
@@ -392,6 +431,10 @@
                     <div class="tile sev-critical-card p-3">
                         <p class="section-label">Alerts Captured</p>
                         <p id="total-alerts" class="mt-1 text-2xl font-black">0</p>
+                    </div>
+                    <div class="tile sev-critical-card p-3">
+                        <p class="section-label">Announcements</p>
+                        <p id="total-announcements" class="mt-1 text-2xl font-black">0</p>
                     </div>
                 </div>
             </section>
@@ -413,8 +456,20 @@
         let latestAnalyticsCache = null;
         let scenarioCatalog = [];
         let activeScenarioKey = "normal";
+        let currentRole = "staff";
+        let lastAnnouncementId = null;
+        const googleTtsEnabled = {{ "true" if google_tts_enabled else "false" }};
         const charts = { density: null, gate: null, incident: null };
         const history = { labels: [], density: [], incident: [] };
+        let lastChartTimestamp = null;
+        let lastChartScenario = null;
+        let lastRenderedScenario = null;
+        let appliedActions = {
+            ai_apply: false,
+            redirect_crowd: false,
+            open_gate: false,
+            deploy_staff: false
+        };
         const STADIUM_COORDS = { lat: 33.9534, lng: -118.3392 };
 
         const gateCoordinates = {
@@ -592,6 +647,187 @@
             }
         }
 
+        function syncRoleUI() {
+            const panicButton = document.getElementById("panic-btn");
+            const isAdmin = currentRole === "admin";
+            if (panicButton) {
+                panicButton.disabled = !isAdmin;
+                panicButton.title = isAdmin ? "Manual evacuation override" : "Admin role required";
+                panicButton.setAttribute("aria-disabled", String(!isAdmin));
+                if (!isAdmin) {
+                    panicButton.classList.add("opacity-60", "cursor-not-allowed");
+                } else {
+                    panicButton.classList.remove("opacity-60", "cursor-not-allowed");
+                }
+            }
+            ["preview-announcement-btn", "broadcast-announcement-btn"].forEach((id) => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.disabled = !isAdmin;
+                btn.title = isAdmin ? "Announcement controls ready" : "Admin role required";
+            });
+        }
+
+        function providerLabel(provider) {
+            if (provider === "google_cloud_text_to_speech") return "Google Cloud TTS";
+            if (provider === "browser_fallback") return googleTtsEnabled ? "Cloud Fallback" : "Browser Fallback";
+            return provider || "No announcement";
+        }
+
+        function resetActionState() {
+            appliedActions = {
+                ai_apply: false,
+                redirect_crowd: false,
+                open_gate: false,
+                deploy_staff: false
+            };
+        }
+
+        function applyActionVisualState(actionKey, enabled) {
+            const statusMap = {
+                redirect_crowd: "action-status-redirect-crowd",
+                open_gate: "action-status-open-gate",
+                deploy_staff: "action-status-deploy-staff"
+            };
+            const cardMap = {
+                redirect_crowd: "action-card-redirect-crowd",
+                open_gate: "action-card-open-gate",
+                deploy_staff: "action-card-deploy-staff"
+            };
+
+            if (actionKey === "ai_apply") {
+                const btn = document.getElementById("apply-ai-btn");
+                const status = document.getElementById("ai-action-status");
+                if (btn) {
+                    btn.disabled = enabled;
+                    btn.innerText = enabled ? "Applied" : "Apply";
+                    btn.className = enabled
+                        ? "mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white"
+                        : "mt-3 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-700";
+                }
+                if (status) {
+                    status.innerText = enabled ? "Recommendation executed" : "Pending execution";
+                    status.className = enabled
+                        ? "mt-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700"
+                        : "mt-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500";
+                }
+                return;
+            }
+
+            const card = document.getElementById(cardMap[actionKey]);
+            const status = document.getElementById(statusMap[actionKey]);
+            if (card) {
+                card.disabled = enabled;
+                card.className = enabled
+                    ? "tile sev-low-card p-3 text-left ring-2 ring-emerald-400"
+                    : actionKey === "redirect_crowd"
+                    ? "tile sev-high-card p-3 text-left hover:border-sky-400"
+                    : actionKey === "open_gate"
+                    ? "tile sev-low-card p-3 text-left hover:border-teal-400"
+                    : "tile sev-medium-card p-3 text-left hover:border-indigo-400";
+            }
+            if (status) {
+                status.innerText = enabled ? "Applied" : "Ready";
+                status.className = enabled
+                    ? "mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700"
+                    : "mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600";
+            }
+        }
+
+        function syncAppliedActionsUI() {
+            Object.entries(appliedActions).forEach(([actionKey, enabled]) => applyActionVisualState(actionKey, enabled));
+        }
+
+        function renderAnnouncementCard(announcement) {
+            const messageEl = document.getElementById("announcement-live-message");
+            const providerEl = document.getElementById("announcement-provider");
+            if (!messageEl || !providerEl) return;
+            if (!announcement || !announcement.message) {
+                messageEl.innerText = "The latest PA message will appear here.";
+                providerEl.innerText = "No announcement yet";
+                return;
+            }
+            messageEl.innerText = announcement.message;
+            providerEl.innerText = providerLabel(announcement.audio_provider);
+        }
+
+        async function playAnnouncementAudio(announcement) {
+            if (!announcement || !announcement.message) return;
+            const audioEl = document.getElementById("announcement-audio");
+            if (announcement.audio_src && audioEl) {
+                audioEl.src = announcement.audio_src;
+                try {
+                    await audioEl.play();
+                    return;
+                } catch (_) {
+                    // Fall back to browser synthesis below.
+                }
+            }
+            if ("speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(announcement.message);
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        async function submitAnnouncement(broadcast) {
+            const messageEl = document.getElementById("announcement-message");
+            const severityEl = document.getElementById("announcement-severity");
+            const statusEl = document.getElementById("announcement-status");
+            const button = document.getElementById(broadcast ? "broadcast-announcement-btn" : "preview-announcement-btn");
+            const message = (messageEl?.value || "").trim();
+            if (!message) {
+                if (statusEl) statusEl.innerText = "Add an announcement message before sending audio.";
+                return;
+            }
+            if (button) {
+                button.disabled = true;
+                button.dataset.originalText = button.innerText;
+                button.innerText = broadcast ? "Broadcasting..." : "Rendering...";
+            }
+            if (statusEl) statusEl.innerText = broadcast ? "Generating live PA audio..." : "Generating preview voice...";
+            try {
+                const response = await fetch("/api/v1/announcements", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        message,
+                        severity: severityEl?.value || "info",
+                        broadcast
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.detail || "Announcement request failed.");
+                }
+                renderAnnouncementCard(result.announcement);
+                await playAnnouncementAudio(result.announcement);
+                if (broadcast) {
+                    staffState = { ...staffState, announcement: result.announcement };
+                    lastAnnouncementId = result.announcement.id;
+                    if (statusEl) statusEl.innerText = `Broadcast sent via ${providerLabel(result.announcement.audio_provider)}.`;
+                    await fetchAnalytics();
+                } else if (statusEl) {
+                    statusEl.innerText = `Preview ready via ${providerLabel(result.announcement.audio_provider)}.`;
+                }
+            } catch (error) {
+                if (statusEl) statusEl.innerText = error.message || "Unable to create announcement.";
+            } finally {
+                if (button) {
+                    button.innerText = button.dataset.originalText || button.innerText;
+                    button.disabled = currentRole !== "admin";
+                }
+            }
+        }
+
+        function previewAnnouncement() {
+            submitAnnouncement(false);
+        }
+
+        function broadcastAnnouncement() {
+            submitAnnouncement(true);
+        }
+
         function updateKpiCardColors(beforeWait, afterWait, density, criticalCount) {
             const beforeCard = document.getElementById("kpi-before-card");
             const afterCard = document.getElementById("kpi-after-card");
@@ -683,7 +919,10 @@
                 const card = document.createElement("div");
                 card.className = `tile p-3 ${tone.card} ${alert.type === "critical" ? "critical-pulse" : ""}`;
                 card.setAttribute("tabindex", "0");
+                card.setAttribute("role", "button");
+                card.setAttribute("aria-expanded", "false");
                 card.setAttribute("data-alert-type", alert.type);
+                const detailsId = `alert-details-${idx}`;
                 card.innerHTML = `
                     <div class="flex items-start justify-between gap-3">
                         <div>
@@ -694,13 +933,18 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <button tabindex="0" onclick="handleAlertAction('${alert.type}', this)" class="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-bold text-slate-700">${tone.action}</button>
-                            <button tabindex="0" onclick="toggleAlertDetails('alert-details-${idx}')" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-700">Details</button>
+                            <button tabindex="0" onclick="toggleAlertDetails('${detailsId}')" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-700">Details</button>
                         </div>
                     </div>
-                    <div id="alert-details-${idx}" class="mt-2 hidden text-sm text-slate-700">
+                    <div id="${detailsId}" class="mt-2 hidden text-sm text-slate-700">
                         ${alert.reasoning}
                     </div>
                 `;
+                card.addEventListener("keydown", (event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    toggleAlertDetails(detailsId);
+                });
                 wrapper.appendChild(card);
             });
         }
@@ -790,12 +1034,13 @@
                     card.className = `tile ${severityCardClass(inferSeverityFromText(item))} p-3`;
                     card.innerHTML = `<p class="text-sm text-slate-700">${item}</p>`;
                 } else {
-                    const inferred = normalizeSeverity(item.severity || inferSeverityFromText(item.summary || item.prompt || item.response_message || ""));
+                    const inferred = normalizeSeverity(item.severity || inferSeverityFromText(item.summary || item.prompt || item.response_message || item.message || ""));
                     card.className = `tile ${severityCardClass(inferred)} p-3`;
                     card.innerHTML = `
                         <p class="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">${item.created_at || item.severity || "Live"}</p>
-                        <p class="mt-1 text-sm text-slate-800">${item.summary || item.prompt || item.response_message}</p>
+                        <p class="mt-1 text-sm text-slate-800">${item.summary || item.prompt || item.message || item.response_message}</p>
                         ${item.response_message ? `<p class="mt-1 text-xs text-slate-500">${item.response_message}</p>` : ""}
+                        ${item.audio_provider ? `<p class="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">${providerLabel(item.audio_provider)}</p>` : ""}
                     `;
                 }
                 wrapper.appendChild(card);
@@ -806,6 +1051,10 @@
             const el = document.getElementById(id);
             if (!el) return;
             el.classList.toggle("hidden");
+            const parentCard = el.parentElement;
+            if (parentCard && parentCard.getAttribute("role") === "button") {
+                parentCard.setAttribute("aria-expanded", String(!el.classList.contains("hidden")));
+            }
         }
 
         function renderLogs() {
@@ -896,6 +1145,30 @@
                 : "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700";
         }
 
+        function setupKeyboardNavigation() {
+            const tabs = [document.getElementById("tab-btn-ops"), document.getElementById("tab-btn-logs")].filter(Boolean);
+            tabs.forEach((tab, index) => {
+                tab.addEventListener("keydown", (event) => {
+                    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && event.key !== "Home" && event.key !== "End") return;
+                    event.preventDefault();
+                    if (event.key === "Home") {
+                        tabs[0].focus();
+                        tabs[0].click();
+                        return;
+                    }
+                    if (event.key === "End") {
+                        tabs[tabs.length - 1].focus();
+                        tabs[tabs.length - 1].click();
+                        return;
+                    }
+                    const step = event.key === "ArrowRight" ? 1 : -1;
+                    const next = (index + step + tabs.length) % tabs.length;
+                    tabs[next].focus();
+                    tabs[next].click();
+                });
+            });
+        }
+
         function toggleLogsCollapse() {
             logsCollapsed = !logsCollapsed;
             const btn = document.getElementById("logs-toggle");
@@ -939,11 +1212,32 @@
         function updateCharts(data) {
             if (!charts.density || !charts.gate || !charts.incident) return;
             const density = Number(data?.evaluation?.after_ai?.max_zone_density || 0);
-            const now = new Date((data.timestamp || Date.now() / 1000) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            const chartTimestamp = Number(data?.timestamp || 0);
+            const scenario = data?.scenario || "normal";
+            const now = new Date((chartTimestamp || Date.now() / 1000) * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            const persistedIncidents = Number(latestAnalyticsCache?.totals?.alerts);
+            const liveIncidentFallback = (data.alerts || []).reduce((total, alert) => {
+                if (alert.type === "critical") return total + 3;
+                if (alert.type === "warning") return total + 2;
+                return total + 1;
+            }, 0);
+            const incidentValue = Number.isFinite(persistedIncidents) && persistedIncidents > 0
+                ? persistedIncidents
+                : liveIncidentFallback;
+
+            if (lastChartScenario !== scenario) {
+                history.labels = [];
+                history.density = [];
+                history.incident = [];
+                lastChartScenario = scenario;
+                lastChartTimestamp = null;
+            }
+            if (lastChartTimestamp === chartTimestamp) return;
+            lastChartTimestamp = chartTimestamp;
 
             history.labels.push(now);
             history.density.push(density);
-            history.incident.push((data.alerts || []).length);
+            history.incident.push(incidentValue);
             if (history.labels.length > 20) {
                 history.labels.shift();
                 history.density.shift();
@@ -971,6 +1265,10 @@
         function renderTelemetry(data) {
             if (!data || !data.evaluation) return;
             activeScenarioKey = data.scenario || activeScenarioKey;
+            if (lastRenderedScenario !== activeScenarioKey) {
+                resetActionState();
+                lastRenderedScenario = activeScenarioKey;
+            }
             document.getElementById("scenario-label").innerText = data.scenario_label || "Live Scenario";
             document.getElementById("scenario-description").innerText = data.scenario_description || "Live telemetry running.";
             document.getElementById("incident-type").innerText = titleize(data.incident_type || "routine_flow");
@@ -1002,6 +1300,7 @@
             renderAlerts(data);
             renderHeatmaps(data.heatmaps || {});
             updateGoogleHeatmap(data.heatmaps || {});
+            renderAnnouncementCard(data.announcement || null);
 
             document.getElementById("staffing-summary").innerText = data.directives.staffing_recommendation.summary;
             renderList("staffing-moves", data.directives.staffing_recommendation.moves, "No staffing moves right now.");
@@ -1009,8 +1308,11 @@
 
             const bottleneckZone = titleize(data.directives.predicted_bottleneck.zone || "north_gate");
             const confidence = Number(data.directives.confidence_score || 0);
-            document.getElementById("ai-suggestion-text").innerText = `Redirect 20% traffic from ${bottleneckZone} to the nearest low-load zone.`;
+            document.getElementById("ai-suggestion-text").innerText = appliedActions.ai_apply
+                ? `AI recommendation applied. Traffic is being rerouted away from ${bottleneckZone}.`
+                : `Redirect 20% traffic from ${bottleneckZone} to the nearest low-load zone.`;
             document.getElementById("ai-suggestion-confidence").innerText = String(confidence);
+            syncAppliedActionsUI();
 
             const logs = (data.alerts || []).map((alert) => ({
                 type: "alert",
@@ -1029,6 +1331,7 @@
                 panicButton.innerText = "Manual Evacuation Override";
                 panicButton.className = "rounded-full border border-rose-300 bg-gradient-to-r from-rose-600 to-orange-500 px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white shadow-sm";
             }
+            syncRoleUI();
 
             updateCharts(data);
         }
@@ -1039,8 +1342,10 @@
             document.getElementById("total-queries").innerText = analytics.totals.ai_queries;
             document.getElementById("total-actions").innerText = analytics.totals.operator_actions;
             document.getElementById("total-alerts").innerText = analytics.totals.alerts;
+            document.getElementById("total-announcements").innerText = analytics.totals.announcements || 0;
             renderList("recent-alerts", analytics.recent_alerts, "No persisted alerts yet.");
             renderList("recent-queries", analytics.recent_queries, "No persisted fan queries yet.");
+            renderList("recent-announcements", analytics.recent_announcements, "No announcements broadcast yet.");
             renderLogs();
         }
 
@@ -1048,6 +1353,8 @@
             const response = await fetch("/api/v1/config");
             const result = await response.json();
             scenarioCatalog = result.scenarios || [];
+            currentRole = result.role || "staff";
+            syncRoleUI();
             renderScenarioButtons();
         }
 
@@ -1059,12 +1366,19 @@
         }
 
         async function togglePanic() {
-            await fetch("/api/v1/panic", { method: "POST" });
+            const response = await fetch("/api/v1/panic", { method: "POST" });
+            if (!response.ok) {
+                const feedback = document.getElementById("action-feedback");
+                if (feedback) feedback.innerText = response.status === 403 ? "Admin role required for evacuation override." : "Rate limited. Please retry shortly.";
+                return;
+            }
             await fetchAnalytics();
         }
 
         async function setScenario(scenario) {
             activeScenarioKey = scenario;
+            resetActionState();
+            syncAppliedActionsUI();
             renderScenarioButtons();
             await fetch("/api/v1/scenario", {
                 method: "POST",
@@ -1088,6 +1402,7 @@
                 btn.innerText = "Applying...";
             }
             setTimeout(() => {
+                appliedActions[actionKey] = true;
                 feedback.innerText = messages[actionKey] || "Action Applied Successfully.";
                 const actionEl = document.getElementById("total-actions");
                 actionEl.innerText = String((parseInt(actionEl.innerText, 10) || 0) + 1);
@@ -1098,6 +1413,14 @@
                     details: titleize(actionKey)
                 });
                 renderLogs();
+                if (actionKey === "ai_apply") {
+                    const aiText = document.getElementById("ai-suggestion-text");
+                    if (aiText && staffState?.directives?.predicted_bottleneck?.zone) {
+                        aiText.innerText = `AI recommendation applied. Traffic is being rerouted away from ${titleize(staffState.directives.predicted_bottleneck.zone)}.`;
+                    }
+                }
+                syncAppliedActionsUI();
+                btn = null;
                 if (btn) {
                     btn.innerText = "✅ Action Applied";
                     setTimeout(() => {
@@ -1153,6 +1476,7 @@
         document.addEventListener("DOMContentLoaded", async () => {
             initMap();
             initCharts();
+            setupKeyboardNavigation();
             setAlertFilter("all");
             switchMainTab("ops");
             await loadConfig();

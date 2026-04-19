@@ -208,35 +208,46 @@
                         </div>
                     </div>
                 </div>
+                <div id="announcement-banner" class="hidden rounded-[2rem] border border-rose-200 bg-gradient-to-r from-rose-50 via-white to-orange-50 p-5 shadow-sm">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-[0.28em] text-rose-600">Live Stadium Announcement</p>
+                            <h2 id="announcement-heading" class="mt-2 text-xl font-black">Public address update</h2>
+                            <p id="announcement-message" class="mt-3 text-sm font-semibold leading-6 text-slate-800">Awaiting the next command-center announcement.</p>
+                            <p id="announcement-meta" class="mt-3 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">Cloud voice standby</p>
+                        </div>
+                        <button onclick="replayAnnouncement()" class="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-rose-700">Replay</button>
+                    </div>
+                </div>
 
                 <!-- Live Poll Widget -->
                 <div id="fan-poll" class="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm">
                     <div class="flex items-center justify-between gap-4">
                         <p class="text-xs font-bold uppercase tracking-[0.28em] text-indigo-600">🗳️ Live Fan Poll</p>
-                        <span class="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-600">Active</span>
+                        <span id="poll-status-badge" class="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-600">Open</span>
                     </div>
-                    <h3 class="mt-3 text-lg font-black leading-tight">Who will be the Man of the Match?</h3>
+                    <h3 id="poll-question" class="mt-3 text-lg font-black leading-tight">Who is the player of the match so far?</h3>
                     <div class="mt-5 space-y-3">
-                        <button onclick="votePoll('player_1')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
+                        <button data-poll-option="player_1" onclick="votePoll('player_1')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
                             <div class="relative z-10 flex justify-between items-center">
-                                <span class="font-bold text-slate-700">Leo "Lion" Messi</span>
-                                <span class="poll-pct hidden text-xs font-black text-indigo-900">42%</span>
+                                <span id="poll-option-player-1" class="font-bold text-slate-700">Arjun Blaze</span>
+                                <span id="poll-pct-player-1" class="poll-pct hidden text-xs font-black text-indigo-900">44%</span>
                             </div>
-                            <div class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 42%"></div>
+                            <div id="poll-bar-player-1" class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 44%"></div>
                         </button>
-                        <button onclick="votePoll('player_2')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
+                        <button data-poll-option="player_2" onclick="votePoll('player_2')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
                             <div class="relative z-10 flex justify-between items-center">
-                                <span class="font-bold text-slate-700">Tiger Woods</span>
-                                <span class="poll-pct hidden text-xs font-black text-indigo-900">38%</span>
+                                <span id="poll-option-player-2" class="font-bold text-slate-700">Mateo Cross</span>
+                                <span id="poll-pct-player-2" class="poll-pct hidden text-xs font-black text-indigo-900">36%</span>
                             </div>
-                            <div class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 38%"></div>
+                            <div id="poll-bar-player-2" class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 36%"></div>
                         </button>
-                        <button onclick="votePoll('other')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
+                        <button data-poll-option="player_3" onclick="votePoll('player_3')" class="poll-opt w-full group relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 text-left transition-all hover:border-indigo-300">
                             <div class="relative z-10 flex justify-between items-center">
-                                <span class="font-bold text-slate-700">Someone Else</span>
-                                <span class="poll-pct hidden text-xs font-black text-indigo-900">20%</span>
+                                <span id="poll-option-player-3" class="font-bold text-slate-700">Sofia Vale</span>
+                                <span id="poll-pct-player-3" class="poll-pct hidden text-xs font-black text-indigo-900">20%</span>
                             </div>
-                            <div class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 20%"></div>
+                            <div id="poll-bar-player-3" class="poll-bar absolute inset-0 bg-indigo-600/40 origin-left transition-all duration-1000 scale-x-0" style="width: 20%"></div>
                         </button>
                     </div>
                 </div>
@@ -520,6 +531,7 @@
             <div class="mt-3 flex justify-end"><button id="ai-launcher" onclick="toggleChat(true)" aria-label="Open AI stadium assistant chat" class="rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 px-5 py-4 text-sm font-black text-white shadow-[0_12px_36px_rgba(59,130,246,0.45)]">🤖 AI</button></div>
         </div>
     </div>
+    <audio id="fan-announcement-audio" class="hidden" preload="none"></audio>
     <script>
         let totalPoints = 240, cartTotal = 0, activeDiscount = 0, ws = null, reconnectTimer = null, reconnecting = false, isDarkMode = false;
         let claimedBounties = new Set();
@@ -577,6 +589,8 @@
         }
 
         let localState = {}; // Local state for delta merging
+        let lastAnnouncementId = null;
+        let hasVotedInPoll = false;
 
         function getPreferredLanguage() {
             const browserLang = (navigator.language || 'en').trim();
@@ -647,6 +661,43 @@
             const msg = new SpeechSynthesisUtterance(text);
             msg.rate = 1.05;
             window.speechSynthesis.speak(msg);
+        }
+
+        async function playAnnouncementAudio(announcement) {
+            if (!announcement || !announcement.message) return;
+            const audioEl = document.getElementById('fan-announcement-audio');
+            if (announcement.audio_src && audioEl) {
+                audioEl.src = announcement.audio_src;
+                try {
+                    await audioEl.play();
+                    return;
+                } catch (_) {
+                    // Fall through to browser speech.
+                }
+            }
+            speak(announcement.message);
+        }
+
+        function renderAnnouncement(announcement) {
+            const banner = document.getElementById('announcement-banner');
+            const messageEl = document.getElementById('announcement-message');
+            const metaEl = document.getElementById('announcement-meta');
+            const headingEl = document.getElementById('announcement-heading');
+            if (!banner || !messageEl || !metaEl || !headingEl) return;
+            if (!announcement || !announcement.message) {
+                banner.classList.add('hidden');
+                return;
+            }
+            banner.classList.remove('hidden');
+            headingEl.innerText = announcement.severity === 'critical' ? 'Emergency voice update' : 'Public address update';
+            messageEl.innerText = announcement.message;
+            metaEl.innerText = announcement.audio_provider === 'google_cloud_text_to_speech'
+                ? 'Google Cloud Text-to-Speech live'
+                : 'Browser voice fallback';
+        }
+
+        function replayAnnouncement() {
+            if (localState?.announcement) playAnnouncementAudio(localState.announcement);
         }
 
         function renderMenu(category = 'all') {
@@ -896,7 +947,62 @@
                 btn.classList.add('bg-sky-100', 'border-sky-300');
             }
         }
-        function votePoll(opt){document.querySelectorAll('.poll-pct').forEach(p => p.classList.remove('hidden'));document.querySelectorAll('.poll-bar').forEach(b => b.classList.remove('scale-x-0'));document.querySelectorAll('.poll-opt').forEach(b => {b.onclick = null;b.classList.remove('hover:border-indigo-300');if(!b.innerHTML.includes(opt)) b.classList.add('opacity-50');});}
+        function renderLivePoll(matchInfo){
+            const badge = document.getElementById('poll-status-badge');
+            const question = document.getElementById('poll-question');
+            const options = {
+                player_1: { name: 'Arjun Blaze', pct: matchInfo?.score === '3 - 1' ? 52 : 44 },
+                player_2: { name: 'Mateo Cross', pct: matchInfo?.score === '3 - 1' ? 31 : 36 },
+                player_3: { name: 'Sofia Vale', pct: matchInfo?.score === '3 - 1' ? 17 : 20 }
+            };
+            Object.entries(options).forEach(([key, value]) => {
+                const label = document.getElementById(`poll-option-${key.replace('_', '-')}`) || document.getElementById(`poll-option-${key}`);
+                const pct = document.getElementById(`poll-pct-${key.replace('_', '-')}`) || document.getElementById(`poll-pct-${key}`);
+                const bar = document.getElementById(`poll-bar-${key.replace('_', '-')}`) || document.getElementById(`poll-bar-${key}`);
+                if (label) label.innerText = value.name;
+                if (pct) pct.innerText = `${value.pct}%`;
+                if (bar) bar.style.width = `${value.pct}%`;
+            });
+            const isClosed = matchInfo?.status === 'full_time';
+            if (badge) {
+                badge.innerText = isClosed ? 'Closed' : 'Open';
+                badge.className = isClosed
+                    ? 'rounded-full bg-slate-200 px-3 py-1 text-[10px] font-bold text-slate-700'
+                    : 'rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold text-indigo-600';
+            }
+            if (question) {
+                question.innerText = isClosed
+                    ? 'Who was the player of the match?'
+                    : 'Who is the player of the match so far?';
+            }
+            if (hasVotedInPoll && !isClosed) {
+                if (badge) badge.innerText = 'Vote Cast';
+                return;
+            }
+            if (isClosed) {
+                document.querySelectorAll('.poll-pct').forEach((p) => p.classList.remove('hidden'));
+                document.querySelectorAll('.poll-bar').forEach((b) => b.classList.remove('scale-x-0'));
+                document.querySelectorAll('.poll-opt').forEach((button) => {
+                    button.onclick = null;
+                    button.classList.remove('hover:border-indigo-300');
+                });
+                hasVotedInPoll = true;
+            }
+        }
+
+        function votePoll(opt){
+            hasVotedInPoll = true;
+            document.querySelectorAll('.poll-pct').forEach(p => p.classList.remove('hidden'));
+            document.querySelectorAll('.poll-bar').forEach(b => b.classList.remove('scale-x-0'));
+            document.querySelectorAll('.poll-opt').forEach((button) => {
+                const buttonOption = button.dataset.pollOption;
+                button.onclick = null;
+                button.classList.remove('hover:border-indigo-300');
+                if(buttonOption !== opt) button.classList.add('opacity-50');
+            });
+            const badge = document.getElementById('poll-status-badge');
+            if (badge) badge.innerText = 'Vote Cast';
+        }
         function renderTelemetry(data){
             if(!data) return;
             const pill = document.getElementById('scenario-pill');
@@ -906,6 +1012,11 @@
             updateProfileUI(data.personalization,data.route_plan,data.evaluation);
             updateCrowdDensity(data.evaluation);
             updateHeatmap(data.evaluation.after_ai.max_zone_density);
+            renderAnnouncement(data.announcement);
+            if(data.announcement?.id && data.announcement.id !== lastAnnouncementId){
+                lastAnnouncementId = data.announcement.id;
+                playAnnouncementAudio(data.announcement);
+            }
             const note = document.getElementById('map-service-note');
             if(note) note.innerText=data.google_services.join(' + ');
             const impact = document.getElementById('impact-copy');
@@ -916,6 +1027,7 @@
                 const time = document.getElementById('match-time');
                 if(score) score.innerText = data.match_info.score;
                 if(time) time.innerText = data.match_info.time;
+                renderLivePoll(data.match_info);
             }
             const firstAlert=data.alerts[0];
             if(firstAlert){
