@@ -3,6 +3,7 @@ uvicorn[standard]
 jinja2
 python-dotenv
 httpx
+requests
 google-auth
 itsdangerous
 pydantic

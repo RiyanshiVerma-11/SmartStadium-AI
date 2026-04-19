@@ -145,6 +145,8 @@ Google’s ecosystem forms the core brain of SmartStadium, not just an add-on:
 - **Google Maps Platform (Planned: Directions API Integration)**: 
   - **Spatial Intelligence**: Heatmap layers and real-time POI rendering via the Maps JS & Visualization API.
 - **Google Identity Services**: Fully integrated OAuth flow for secure, one-tap onboarding.
+- **Google Cloud Translation API**:
+  - **Live Emergency Localization**: Critical alerts and accessibility routing text are translated server-side per device language (`/ws/data?lang=xx`) before fan delivery.
 - **Google Calendar/Wallet APIs**: Simulated integrations for ticketing and matchday event sync.
 
 ---
@@ -157,6 +159,7 @@ SmartStadium is designed for everyone:
 - **Multimodal Voice Interaction**: Uses the Web Speech API (🎤 Voice-to-Text & 🔊 Text-to-Speech) for hands-free guidance.
 - **Profile-Aware Routing**: AI automatically factors in `Wheelchair` or `Low Vision` tags to avoid stairs or high-density zones.
 - **Screen-Reader Optimized**: Real-time alerts (like Emergency SOS) use `aria-live="assertive"` to immediately notify visually impaired users.
+- **Colorblind-Safe Heatmaps**: Fan and staff heatmaps use a Viridis-style gradient (violet-blue-cyan-yellow) to avoid red/green-only signaling.
 
 ---
 
@@ -188,6 +191,7 @@ TOTAL                     363     62    83%
 The system is engineered to handle massive concurrent traffic typical of 90,000+ seat venues without degrading the fan experience.
 
 - **Architecture:** Optimized for low latency using **async FastAPI + TTL Caching + async connection pooling**.
+- **Delta WebSocket Updates:** Clients receive full snapshots only periodically; all intermediate updates are top-level field deltas to reduce bandwidth under extreme concurrency.
 - **Average API Response Time (Without LLM):** ~12ms
 - **Graph-Based Routing:** Pre-computes deterministic pathfinding using a lightweight Dijkstra algorithm instead of raw sorting, drastically reducing real-time overhead.
 - **Average LLM Generation Time:** ~650ms (Gemini 1.5 Flash). Responses are heavily cached in-memory to minimize identical API calls during massive spikes.
@@ -223,7 +227,17 @@ Experience the future of stadium operations locally.
    GEMINI_API_KEY=your_key_here
    GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
    GOOGLE_IDENTITY_CLIENT_ID=your_google_identity_client_id_here
+   GOOGLE_TRANSLATE_API_KEY=your_google_translate_api_key_here
    ```
+
+### Google OAuth `origin_mismatch` Fix (Live Demo)
+If Google Sign-In shows `Error 400: origin_mismatch`, add your exact frontend origins in Google Cloud Console:
+1. Open Google Cloud Console -> APIs & Services -> Credentials -> your OAuth 2.0 Web Client.
+2. In **Authorized JavaScript origins**, add:
+   - `http://localhost:8000` (local)
+   - `https://smartstadium-ai.onrender.com` (live demo)
+3. In **Authorized redirect URIs**, include your callback origin if used.
+4. Ensure the same OAuth client ID is set in `GOOGLE_IDENTITY_CLIENT_ID` on the deployed backend.
 
 ### 🐳 Run via Docker (Recommended)
 ```bash

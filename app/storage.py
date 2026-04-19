@@ -22,9 +22,15 @@ class Storage:
         """Create necessary database tables if they do not already exist."""
         async with self._connect() as conn:
             conn.row_factory = aiosqlite.Row
+            await conn.execute("PRAGMA busy_timeout=5000;")
+            # WAL can fail on some bind-mounted filesystems (common in Docker Desktop on Windows).
+            # Fall back to DELETE journal mode to prevent startup/background I/O crashes.
+            try:
+                await conn.execute("PRAGMA journal_mode=WAL;")
+            except aiosqlite.OperationalError:
+                await conn.execute("PRAGMA journal_mode=DELETE;")
             await conn.executescript(
                 """
-                PRAGMA journal_mode=WAL;
                 CREATE TABLE IF NOT EXISTS event_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

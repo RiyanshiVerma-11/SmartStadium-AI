@@ -63,6 +63,7 @@ def test_profile_update_persists_shape():
         "food_preference": "vegan",
         "accessibility_need": "wheelchair",
         "ticket_type": "general",
+        "preferred_language": "en",
     }
     with TestClient(app) as client:
         response = client.post("/api/v1/profile", json=payload)

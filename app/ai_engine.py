@@ -24,6 +24,7 @@ class FanProfile(BaseModel):
     food_preference: str = "vegetarian"
     accessibility_need: str = "none"
     ticket_type: str = "vip"
+    preferred_language: str = "en"
 
 
 class DecisionEngine:

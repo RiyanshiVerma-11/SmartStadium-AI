@@ -1,8 +1,10 @@
 import asyncio
+import copy
 import json
 import os
 import time
 import logging
+import httpx
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("SmartStadium-API")
@@ -11,9 +13,11 @@ from dotenv import load_dotenv
 load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 GOOGLE_IDENTITY_CLIENT_ID = os.getenv("GOOGLE_IDENTITY_CLIENT_ID", "")
+GOOGLE_TRANSLATE_API_KEY = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
+from cachetools import TTLCache
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -63,9 +67,11 @@ GLOBAL_STATE: dict[str, Any] = {
         "food_preference": "vegetarian",
         "accessibility_need": "none",
         "ticket_type": "vip",
+        "preferred_language": "en",
     },
     "last_snapshot": None,
 }
+TRANSLATION_CACHE = TTLCache(maxsize=1000, ttl=1800)
 
 
 class ScenarioRequest(BaseModel):
@@ -225,6 +231,67 @@ def build_snapshot() -> dict[str, Any]:
     }
 
 
+def normalize_language(language: str | None) -> str:
+    if not language:
+        return "en"
+    lang = language.strip().lower()
+    if not lang:
+        return "en"
+    return lang.split("-")[0].split("_")[0]
+
+
+async def translate_text(text: str, target_language: str) -> str:
+    target = normalize_language(target_language)
+    if not text or target == "en" or not GOOGLE_TRANSLATE_API_KEY:
+        return text
+
+    cache_key = f"{target}:{text}"
+    cached = TRANSLATION_CACHE.get(cache_key)
+    if cached:
+        return cached
+
+    url = "https://translation.googleapis.com/language/translate/v2"
+    payload = {
+        "q": text,
+        "target": target,
+        "format": "text",
+        "source": "en",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            response = await client.post(url, params={"key": GOOGLE_TRANSLATE_API_KEY}, json=payload)
+            response.raise_for_status()
+            translated = response.json()["data"]["translations"][0]["translatedText"]
+            TRANSLATION_CACHE[cache_key] = translated
+            return translated
+    except Exception:
+        # Fail open to English so emergency messages always remain readable.
+        return text
+
+
+async def localize_snapshot(snapshot: dict[str, Any], language: str) -> dict[str, Any]:
+    target_language = normalize_language(language)
+    localized = copy.deepcopy(snapshot)
+    localized["language"] = target_language
+
+    if target_language == "en":
+        return localized
+
+    for alert in localized.get("alerts", []):
+        alert["msg"] = await translate_text(alert.get("msg", ""), target_language)
+        alert["reasoning"] = await translate_text(alert.get("reasoning", ""), target_language)
+
+    route = localized.get("route_plan", {})
+    if route.get("accessibility_route"):
+        route["accessibility_route"] = await translate_text(route["accessibility_route"], target_language)
+
+    return localized
+
+
+def calculate_delta(previous: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
+    return {key: current[key] for key in current if current[key] != previous.get(key)}
+
+
 async def update_state_task():
     """Background task to update stadium state periodically."""
     while True:
@@ -234,7 +301,7 @@ async def update_state_task():
             await persist_snapshot(snapshot)
         except Exception as e:
             logger.error(f"Error in background state update: {e}")
-        await asyncio.sleep(3)  # Reduced frequency for efficiency
+        await asyncio.sleep(5)  # Efficiency: Reduced to 5s for cloud-scale
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -336,6 +403,8 @@ async def verify_google_token(payload: GoogleAuthRequest):
                 "sub": id_info.get("sub"),
             },
         }
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail=f"Google auth dependency missing: {e}")
     except ValueError as e:
         raise HTTPException(status_code=401, detail=f"Invalid Google credential: {e}")
 
@@ -369,15 +438,18 @@ async def get_config():
         },
         "profile": GLOBAL_STATE["current_profile"],
         "llm_enabled": True,
+        "translation_enabled": bool(GOOGLE_TRANSLATE_API_KEY),
         "match_info": snapshot["match_info"],
         "weather": snapshot["weather"]
     }
 
 
 @app.get("/api/v1/snapshot")
-async def get_snapshot():
+async def get_snapshot(request: Request):
     snapshot = GLOBAL_STATE["last_snapshot"] or build_snapshot()
-    return {"status": "success", "snapshot": snapshot}
+    language = normalize_language(request.query_params.get("lang") or GLOBAL_STATE["current_profile"].get("preferred_language"))
+    localized_snapshot = await localize_snapshot(snapshot, language)
+    return {"status": "success", "snapshot": localized_snapshot}
 
 
 @app.post("/api/v1/panic")
@@ -485,13 +557,44 @@ async def websocket_endpoint(websocket: WebSocket):
     client_id = str(uuid.uuid4())
     logger.debug(f"WS Connected {client_id}. Total: {ACTIVE_WS_CONNECTIONS}")
     try:
+        requested_language = normalize_language(
+            websocket.query_params.get("lang") or GLOBAL_STATE["current_profile"].get("preferred_language")
+        )
         last_tick = -1
+        full_broadcast_counter = 0
+        last_sent_snapshot: dict[str, Any] = {}
+
         while True:
             snapshot = GLOBAL_STATE["last_snapshot"]
-            if snapshot and snapshot.get("timestamp") != last_tick:
-                await websocket.send_text(json.dumps(snapshot))
-                last_tick = snapshot.get("timestamp")
-            await asyncio.sleep(1) # Broadcast rate limiting (1 sec pulse)
+            if not snapshot:
+                await asyncio.sleep(1)
+                continue
+
+            current_ts = snapshot.get("timestamp")
+            if current_ts == last_tick:
+                await asyncio.sleep(1)
+                continue
+
+            localized_snapshot = await localize_snapshot(snapshot, requested_language)
+            force_full = not last_sent_snapshot or full_broadcast_counter >= 60
+
+            if force_full:
+                await websocket.send_text(
+                    json.dumps({"type": "full", "snapshot": localized_snapshot, "timestamp": current_ts})
+                )
+                last_sent_snapshot = localized_snapshot
+                full_broadcast_counter = 0
+            else:
+                changes = calculate_delta(last_sent_snapshot, localized_snapshot)
+                if changes:
+                    await websocket.send_text(
+                        json.dumps({"type": "delta", "changes": changes, "timestamp": current_ts})
+                    )
+                    last_sent_snapshot = {**last_sent_snapshot, **changes}
+                full_broadcast_counter += 1
+
+            last_tick = current_ts
+            await asyncio.sleep(1)
     except WebSocketDisconnect:
         logger.debug(f"WS Disconnected {client_id}")
     finally:

@@ -7,9 +7,14 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/app/app
+      - stadium_db:/app/app/data
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       - ENV=development
+      - SMARTSTADIUM_DB_PATH=/app/app/data/smartstadium.db
     env_file:
       - .env
     restart: unless-stopped
+
+volumes:
+  stadium_db:

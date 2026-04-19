@@ -551,11 +551,18 @@
                 disableDefaultUI: true
             });
 
-            // Google Heatmap Layer
+            // Google Heatmap Layer - Accessibility: Viridis colorblind-safe gradient
             heatmapLayer = new google.maps.visualization.HeatmapLayer({
                 data: [],
                 map: map,
-                radius: 40
+                radius: 40,
+                gradient: [
+                    'rgba(68, 1, 84, 0)',    // #440154 purple (low)
+                    'rgba(59, 82, 139, 0.3)', // #3b528b blue
+                    'rgba(33, 144, 140, 0.5)', // #21908c teal
+                    'rgba(93, 200, 99, 0.7)',  // #5dc863 green
+                    'rgba(253, 231, 37, 1)'    // #fde725 yellow (high)
+                ]
             });
         }
 
@@ -567,6 +574,37 @@
                 { location: new google.maps.LatLng(STADIUM_COORDS.lat - 0.0008, STADIUM_COORDS.lng - 0.0003), weight: (density * 1.2) / 10 }
             ];
             heatmapLayer.setData(points);
+        }
+
+        let localState = {}; // Local state for delta merging
+
+        function getPreferredLanguage() {
+            const browserLang = (navigator.language || 'en').trim();
+            return browserLang ? browserLang : 'en';
+        }
+
+        function deepMerge(target, source) {
+            Object.keys(source).forEach((key) => {
+                const sourceValue = source[key];
+                if (sourceValue && typeof sourceValue === 'object' && !Array.isArray(sourceValue)) {
+                    const base = (target[key] && typeof target[key] === 'object' && !Array.isArray(target[key]))
+                        ? target[key]
+                        : {};
+                    target[key] = deepMerge(base, sourceValue);
+                } else {
+                    target[key] = sourceValue;
+                }
+            });
+            return target;
+        }
+
+        function applyDelta(data) {
+            if (data.type === 'full') {
+                localState = data.snapshot || {};
+            } else if (data.type === 'delta') {
+                deepMerge(localState, data.changes || {});
+            }
+            renderTelemetry(localState);
         }
 
         function drawRoute(target) {
@@ -641,7 +679,7 @@
         function toggleTicket(show){document.getElementById('ticket-modal').classList.toggle('hidden',!show)}
         function toggleOrderSheet(show){document.getElementById('order-sheet').classList.toggle('hidden',!show);updatePointsUI();updateCheckoutTotal()}
         function toggleTheme(){isDarkMode=!isDarkMode;document.body.classList.toggle('dark-mode',isDarkMode);document.getElementById('theme-toggle').innerText=isDarkMode?'Day Mode':'Arena Mode'}
-        function profilePayload(){return{name:document.getElementById('profile-name').value,seat_section:document.getElementById('profile-seat-section').value,preferred_gate:document.getElementById('profile-preferred-gate').value,food_preference:document.getElementById('profile-food-preference').value,accessibility_need:document.getElementById('profile-accessibility-need').value,ticket_type:document.getElementById('profile-ticket-type').value}}
+        function profilePayload(){return{name:document.getElementById('profile-name').value,seat_section:document.getElementById('profile-seat-section').value,preferred_gate:document.getElementById('profile-preferred-gate').value,food_preference:document.getElementById('profile-food-preference').value,accessibility_need:document.getElementById('profile-accessibility-need').value,ticket_type:document.getElementById('profile-ticket-type').value,preferred_language:getPreferredLanguage()}}
         function navigateToService(key){ 
             const mapping = { 'food_stalls': 'food', 'restrooms': 'gate_c', 'security_check': 'gate_a', 'merch_stand': 'gate_b' };
             const mapKey = mapping[key] || key;
@@ -798,19 +836,19 @@
             circle.setAttribute('stroke-dasharray', `${density}, 100`);
             if(density > 80){
                 label.innerText = 'Critical';status.innerText = 'High Saturation';
-                status.className = 'text-xs text-rose-500 font-bold uppercase tracking-tighter';
-                circle.className = 'stroke-current text-rose-500';
-                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-rose-500/30 blur-3xl rounded-full pulse-glow';
+                status.className = 'text-xs text-violet-700 font-bold uppercase tracking-tighter';
+                circle.className = 'stroke-current text-violet-700';
+                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-violet-600/30 blur-3xl rounded-full pulse-glow';
             } else if(density > 50){
                 label.innerText = 'Moderate';status.innerText = 'Expect Slow Flow';
-                status.className = 'text-xs text-amber-500 font-bold uppercase tracking-tighter';
-                circle.className = 'stroke-current text-amber-500';
-                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/20 blur-3xl rounded-full';
+                status.className = 'text-xs text-cyan-700 font-bold uppercase tracking-tighter';
+                circle.className = 'stroke-current text-cyan-700';
+                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-cyan-500/20 blur-3xl rounded-full';
             } else {
                 label.innerText = 'Optimal';status.innerText = 'Safe & Free Flow';
-                status.className = 'text-xs text-emerald-400 font-bold uppercase tracking-tighter';
-                circle.className = 'stroke-current text-emerald-500';
-                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/10 blur-3xl rounded-full';
+                status.className = 'text-xs text-yellow-600 font-bold uppercase tracking-tighter';
+                circle.className = 'stroke-current text-yellow-500';
+                aura.className = 'absolute -right-4 -bottom-4 w-24 h-24 bg-yellow-400/20 blur-3xl rounded-full';
             }
         }
         function selectSection(name, price){document.getElementById('booking-prompt').classList.add('hidden');const details = document.getElementById('selection-details');details.classList.remove('hidden');document.getElementById('selected-name').innerText = name;document.getElementById('selected-price').innerText = `₹${price * 10}`;document.querySelectorAll('g.cursor-pointer path').forEach(p => p.setAttribute('fill', '#cbd5e1'));}
@@ -971,10 +1009,11 @@
                 improvements: { avg_wait_improvement_pct: 43 } 
             };
             updateProfileUI(result.profile, initialRoute, initialImpact);
+            await fetch('/api/v1/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(profilePayload())});
             updatePointsUI();
             updateCheckoutTotal()
         }
-        function connectWebSocket(){if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;reconnecting=false;ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/data`);ws.onmessage=(event)=>renderTelemetry(JSON.parse(event.data));ws.onopen=()=>{document.getElementById('offline-banner').classList.add('hidden');document.getElementById('main-header').classList.remove('opacity-60');document.getElementById('live-indicator').innerText='Live Sync Active'};const scheduleReconnect=()=>{if(reconnecting)return;reconnecting=true;document.getElementById('offline-banner').classList.remove('hidden');document.getElementById('main-header').classList.add('opacity-60');document.getElementById('live-indicator').innerText='Offline Fallback';reconnectTimer=setTimeout(()=>{reconnectTimer=null;connectWebSocket()},5000)};ws.onerror=scheduleReconnect;ws.onclose=scheduleReconnect}
+        function connectWebSocket(){if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;reconnecting=false;const preferredLanguage=encodeURIComponent(getPreferredLanguage());ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/data?lang=${preferredLanguage}`);ws.onmessage=(event)=>{const data=JSON.parse(event.data);applyDelta(data);};ws.onopen=()=>{document.getElementById('offline-banner').classList.add('hidden');document.getElementById('main-header').classList.remove('opacity-60');document.getElementById('live-indicator').innerText='Delta Sync Active (Efficiency++)'};const scheduleReconnect=()=>{if(reconnecting)return;reconnecting=true;document.getElementById('offline-banner').classList.remove('hidden');document.getElementById('main-header').classList.add('opacity-60');document.getElementById('live-indicator').innerText='Offline Fallback';reconnectTimer=setTimeout(()=>{reconnectTimer=null;connectWebSocket()},5000)};ws.onerror=scheduleReconnect;ws.onclose=scheduleReconnect}
         document.addEventListener('DOMContentLoaded',async()=>{await loadConfig();initMap();switchTab('home');renderMenu('all');document.getElementById('voice-text-input').addEventListener('keydown',(event)=>{if(event.key==='Enter')submitAIQuery(event.target.value)});connectWebSocket()})
     </script>
     <!-- Google Maps Live Modal -->
