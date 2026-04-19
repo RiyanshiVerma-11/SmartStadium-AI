@@ -76,6 +76,7 @@ It bridges the gap between the Command Center (seeing the big picture) and the F
 ## 🔥 Key Innovations
 
 - **AI Decision Engine**: Not a static dashboard. The system evaluates live node density and proactively re-routes traffic.
+- **Semantic Search & POI Vector Mapping**: Uses high-dimensional embeddings to resolve natural language queries (e.g., *"Where is a quiet place to eat near the north side?"*) to specific stadium nodes using cosine similarity.
 - **Real-Time Scenario Handling**: One-click manual triggers for Medical, Weather, and Security emergencies that instantly update all fan devices.
 - **Predictive Crowd Control**: Incentivizes fans with dynamic "Bounties" (e.g., *“Get ₹150 off concessions if you exit via Gate C”*) to naturally balance stadium load.
 - **Live Operations Control**: Admin actions now remain visibly applied in the staff dashboard, and incident analytics update over time instead of appearing static.
@@ -143,6 +144,8 @@ Google’s ecosystem forms the core brain of SmartStadium, not just an add-on:
 - **Google Gemini 1.5 Flash (Production Roadmap: Vertex AI Endpoint)**: 
   - **Decision Reasoning**: Analyzes stadium telemetry and outputs structured JSON responses to drive the frontend dynamic routing logic.
   - **Natural Language Interaction**: Powers the fan-facing chatbot for instant, conversational assistance.
+- **Google Gemini Embeddings (models/embedding-001)**: 
+  - **Intent Recognition**: Converts venue descriptions and user queries into vectors for sub-second semantic retrieval and location matching.
 - **Google Maps Platform (Planned: Directions API Integration)**: 
   - **Spatial Intelligence**: Heatmap layers and real-time POI rendering via the Maps JS & Visualization API.
 - **Google Identity Services**: Fully integrated OAuth flow for secure, one-tap onboarding.
@@ -271,7 +274,8 @@ uvicorn app.main:app --reload
 ## 🛠️ Tech Stack
 
 - **Backend**: Python 3.11, FastAPI, WebSockets
-- **AI/ML**: Google Gemini 1.5 Flash, Hybrid Rule Engine
+- **AI/ML**: Google Gemini 1.5 (Flash & Embeddings), Hybrid Rule Engine
+- **Vector Math**: Numpy (Cosine Similarity for semantic search)
 - **Geospatial**: Google Maps Platform (Maps JS, Visualization)
 - **Multimodal**: Google Cloud Text-to-Speech + Web Speech API fallback
 - **Frontend**: Tailwind CSS, Vanilla JS (Zero-framework for maximum speed)

@@ -79,6 +79,7 @@ GLOBAL_STATE: dict[str, Any] = {
     "last_persisted_alert_keys": set(),
 }
 TRANSLATION_CACHE = TTLCache(maxsize=1000, ttl=1800)
+LOCALIZED_SNAPSHOT_CACHE = TTLCache(maxsize=100, ttl=60)
 
 
 class ScenarioRequest(BaseModel):
@@ -267,15 +268,20 @@ def build_snapshot() -> dict[str, Any]:
     except Exception:
         calculated_gate_key = preferred_gate
 
+    bounty_active = frame.get("bounty_active", False)
     bounty_points = 60 if scenario_key in {"peak_rush", "gate_closure"} else 35
+    bounty_reason = frame.get("bounty_description") or f"Use {calculated_gate_key.replace('_', ' ').title()} to reduce crowding and improve reroute success."
 
-    bounties = [
-        {
-            "target": calculated_gate_key,
-            "points": f"+{bounty_points}",
-            "reason": f"Use {calculated_gate_key.replace('_', ' ').title()} to reduce crowding and improve reroute success.",
-        }
-    ]
+    bounties = []
+    if bounty_active:
+        bounties.append(
+            {
+                "target": calculated_gate_key,
+                "points": f"+{bounty_points}",
+                "reason": bounty_reason,
+            }
+        )
+
     if frame["wait_times_minutes"]["food_stalls"] <= 12:
         bounties.append(
             {
@@ -406,6 +412,13 @@ async def translate_text(text: str, target_language: str) -> str:
 
 async def localize_snapshot(snapshot: dict[str, Any], language: str) -> dict[str, Any]:
     target_language = normalize_language(language)
+    
+    # Cache lookup to avoid redundant translations across multiple clients sharing a language
+    ts = snapshot.get("timestamp", 0)
+    cache_key = f"{target_language}:{ts}"
+    if cache_key in LOCALIZED_SNAPSHOT_CACHE:
+        return LOCALIZED_SNAPSHOT_CACHE[cache_key]
+
     localized = copy.deepcopy(snapshot)
     localized["language"] = target_language
 
@@ -429,6 +442,7 @@ async def localize_snapshot(snapshot: dict[str, Any], language: str) -> dict[str
         announcement["audio_provider"] = "browser_fallback"
         announcement["voice_name"] = None
 
+    LOCALIZED_SNAPSHOT_CACHE[cache_key] = localized
     return localized
 
 
@@ -777,7 +791,8 @@ async def analytics():
             "tts_enabled": bool(GOOGLE_TTS_API_KEY),
             "active_services": [
                 "Maps JavaScript API",
-                "Gemini 1.5 Pro",
+                "Gemini 1.5 Flash",
+                "Gemini Embeddings (embedding-001)",
                 "Cloud Logging",
                 "Cloud Run",
                 "Cloud Text-to-Speech" if GOOGLE_TTS_API_KEY else "Browser Speech Fallback",

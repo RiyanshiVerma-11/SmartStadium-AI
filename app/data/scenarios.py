@@ -6,7 +6,7 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
         "description": "Balanced ingress with predictable wait times and no active incidents.",
         "risk_level": "low",
         "incident_type": "routine_flow",
-        "google_services": ["Google Maps Embed"],
+        "google_services": ["Google Maps Embed", "Gemini Embeddings"],
         "frames": [
             {
                 "heatmaps": {
@@ -54,6 +54,8 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
                         "1 mobile concessions runner near food court",
                     ],
                 },
+                "bounty_active": True,
+                "bounty_description": "Keep the flow smooth! Earn points by using our recommended route.",
                 "predicted_bottleneck": {
                     "zone": "food_court",
                     "minutes_until_peak": 8,
@@ -106,6 +108,8 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
                         "1 usher near parking east to redirect arrivals",
                     ],
                 },
+                "bounty_active": True,
+                "bounty_description": "Arrival pulse detected. Head to the South Gate corridor to earn extra points!",
                 "predicted_bottleneck": {
                     "zone": "north_gate",
                     "minutes_until_peak": 5,
@@ -119,7 +123,7 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
         "description": "Kickoff pressure with sustained demand at ingress and concessions.",
         "risk_level": "high",
         "incident_type": "crowd_surge",
-        "google_services": ["Google Maps Embed"],
+        "google_services": ["Google Maps Embed", "Gemini Embeddings"],
         "frames": [
             {
                 "heatmaps": {
@@ -168,6 +172,8 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
                         "1 medic standby near Concourse A",
                     ],
                 },
+                "bounty_active": True,
+                "bounty_description": "Peak rush alert! Get 100 extra points by using Gate C to bypass the North Gate rush.",
                 "predicted_bottleneck": {
                     "zone": "north_gate",
                     "minutes_until_peak": 3,
@@ -220,6 +226,8 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
                         "2 queue marshals inside Concourse A",
                     ],
                 },
+                "bounty_active": True,
+                "bounty_description": "Heavy demand at central concessions. Use east-side vendors for faster service and extra points!",
                 "predicted_bottleneck": {
                     "zone": "food_court",
                     "minutes_until_peak": 4,
@@ -233,7 +241,7 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
         "description": "Security isolation scenario requiring controlled rerouting and evidence preservation.",
         "risk_level": "critical",
         "incident_type": "security_incident",
-        "google_services": ["Gemini API"],
+        "google_services": ["Gemini API", "Gemini Embeddings"],
         "frames": [
             {
                 "heatmaps": {
@@ -294,7 +302,7 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
         "description": "Connectivity degradation forces SMS-style fallback and cached guidance.",
         "risk_level": "medium",
         "incident_type": "network_outage",
-        "google_services": ["Google Maps Embed fallback"],
+        "google_services": ["Google Maps Embed fallback", "Gemini Embeddings (Cached)"],
         "frames": [
             {
                 "heatmaps": {
@@ -355,7 +363,7 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
         "description": "Localized medical incident near seating section 112 requiring calm rerouting.",
         "risk_level": "high",
         "incident_type": "medical_emergency",
-        "google_services": ["Google Maps Embed", "Gemini API"],
+        "google_services": ["Google Maps Embed", "Gemini API", "Gemini Embeddings"],
         "frames": [
             {
                 "heatmaps": {
@@ -416,7 +424,7 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
         "description": "One ingress route is closed, forcing rebalancing across alternate entries.",
         "risk_level": "high",
         "incident_type": "gate_closure",
-        "google_services": ["Google Maps Embed"],
+        "google_services": ["Google Maps Embed", "Gemini Embeddings"],
         "frames": [
             {
                 "heatmaps": {
@@ -464,6 +472,8 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
                         "2 ushers to Gate C",
                     ],
                 },
+                "bounty_active": True,
+                "bounty_description": "Gate A is closed. Use Gate C or East Entry now to receive a 25% F&B voucher!",
                 "predicted_bottleneck": {
                     "zone": "security_check",
                     "minutes_until_peak": 4,
@@ -477,7 +487,7 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
         "description": "Rain and lightning delay increases indoor crowding and shelter demand.",
         "risk_level": "medium",
         "incident_type": "weather_delay",
-        "google_services": ["Google Maps Embed", "Google Weather-compatible planning"],
+        "google_services": ["Google Maps Embed", "Gemini Embeddings", "Google Weather-compatible planning"],
         "frames": [
             {
                 "heatmaps": {
@@ -538,7 +548,7 @@ SCENARIO_LIBRARY: dict[str, dict[str, Any]] = {
         "description": "A child separation event where staff needs fast identification and calm route control.",
         "risk_level": "high",
         "incident_type": "lost_child",
-        "google_services": ["Gemini API"],
+        "google_services": ["Gemini API", "Gemini Embeddings"],
         "frames": [
             {
                 "heatmaps": {
