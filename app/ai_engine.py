@@ -1,9 +1,39 @@
 import re
 import json
 import heapq
+import time
 from typing import Any
+from functools import lru_cache
 
 from pydantic import BaseModel
+
+
+# Time-based cache for Dijkstra routing results (30-second TTL)
+class RouteCache:
+    """Simple time-based cache for routing results with 30-second TTL."""
+    _cache: dict[str, tuple[Any, float]] = {}
+    _ttl_seconds = 30
+
+    @classmethod
+    def get(cls, key: str) -> Any | None:
+        """Get cached value if not expired."""
+        if key in cls._cache:
+            value, timestamp = cls._cache[key]
+            if time.time() - timestamp < cls._ttl_seconds:
+                return value
+            # Expired - remove
+            del cls._cache[key]
+        return None
+
+    @classmethod
+    def set(cls, key: str, value: Any) -> None:
+        """Store value with current timestamp."""
+        cls._cache[key] = (value, time.time())
+
+    @classmethod
+    def clear(cls) -> None:
+        """Clear all cached routes."""
+        cls._cache.clear()
 
 
 class FanProfile(BaseModel):
@@ -290,20 +320,40 @@ class DecisionEngine:
         """
         Determine the optimal gate using a lightweight graph-based Dijkstra algorithm,
         incorporating real-time crowd density as dynamic edge weights.
+
+        Uses time-based caching (30s TTL) to avoid re-calculating routes when
+        nothing has changed, improving latency for repeated queries.
         """
+        # Create cache key from routing parameters
+        cache_key = f"{start_node}:{preferred_gate}"
+
+        # Check cache first - if recent result exists, return it
+        cached_result = RouteCache.get(cache_key)
+        if cached_result is not None:
+            # Verify the heatmap hasn't changed significantly (compare density values)
+            cached_heatmaps = cached_result.get("_heatmaps_hash")
+            current_heatmaps = str(sorted(state["heatmaps"].items()))
+            if cached_heatmaps == current_heatmaps:
+                # Return cached gate result (without internal cache data)
+                return (
+                    cached_result["gate_name"],
+                    cached_result["zone_key"],
+                    cached_result["gate_status"]
+                )
+
         ranking = {"low": 1.0, "medium": 1.5, "high": 3.0, "critical": 10.0}
-        
+
         # Calculate dynamic edge weights based on real-time zone density
         distances = {node: float('infinity') for node in self.STADIUM_GRAPH}
         distances[start_node] = 0
         priority_queue = [(0, start_node)]
-        
+
         while priority_queue:
             current_distance, current_node = heapq.heappop(priority_queue)
-            
+
             if current_distance > distances[current_node]:
                 continue
-                
+
             for neighbor, weight in self.STADIUM_GRAPH[current_node].items():
                 # Apply density penalties to gates
                 density_penalty = 1.0
@@ -314,19 +364,29 @@ class DecisionEngine:
                     # Slight bonus for preferred gate
                     if neighbor == preferred_gate:
                         density_penalty *= 0.8
-                
+
                 distance = current_distance + (weight * density_penalty)
-                
+
                 if distance < distances[neighbor]:
                     distances[neighbor] = distance
                     heapq.heappush(priority_queue, (distance, neighbor))
-        
+
         # Find the best gate
         gates = ["gate_a", "gate_b", "gate_c", "gate_d"]
         best_gate_key = min(gates, key=lambda g: distances[g])
         zone_key = self.GATE_ZONE_MAP[best_gate_key]
-        
-        return self._pretty_label(best_gate_key), zone_key, state["heatmaps"][zone_key]
+        gate_status = state["heatmaps"][zone_key]
+
+        # Cache the result with heatmap hash for validation
+        result = {
+            "gate_name": self._pretty_label(best_gate_key),
+            "zone_key": zone_key,
+            "gate_status": gate_status,
+            "_heatmaps_hash": str(sorted(state["heatmaps"].items()))
+        }
+        RouteCache.set(cache_key, result)
+
+        return self._pretty_label(best_gate_key), zone_key, gate_status
 
     @staticmethod
     def _pretty_label(value: str) -> str:

@@ -1441,7 +1441,15 @@
                 if (data.type === "full") {
                     staffState = data.snapshot || {};
                 } else if (data.type === "delta") {
-                    staffState = { ...staffState, ...(data.changes || {}) };
+                    // Deep merge for nested objects (like heatmaps, wait_times)
+                    const changes = data.changes || {};
+                    for (const [key, value] of Object.entries(changes)) {
+                        if (value && typeof value === 'object' && !Array.isArray(value) && staffState[key]) {
+                            staffState[key] = { ...staffState[key], ...value };
+                        } else {
+                            staffState[key] = value;
+                        }
+                    }
                 }
                 renderTelemetry(staffState);
             };
