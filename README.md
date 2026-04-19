@@ -205,6 +205,7 @@ The system is engineered to handle massive concurrent traffic typical of 90,000+
 - **Delta WebSocket Updates:** Clients receive full snapshots only periodically; all intermediate updates are top-level field deltas to reduce bandwidth under extreme concurrency.
 - **Average API Response Time (Without LLM):** ~12ms
 - **Graph-Based Routing:** Pre-computes deterministic pathfinding using a lightweight Dijkstra algorithm instead of raw sorting, drastically reducing real-time overhead.
+- **Anti-Spam Security:** Integrated a Token-Bucket rate limiter for AI queries and SOS alerts to prevent DDoS attempts and Gemini API quota exhaustion.
 - **Average LLM Generation Time:** ~650ms (Gemini 1.5 Flash). Responses are heavily cached in-memory to minimize identical API calls during massive spikes.
 - **Google API Efficiency:** Translation and Text-to-Speech requests reuse a shared async `httpx` client instead of opening a new outbound client per request.
 - **Persistence Efficiency:** Repeated alerts are filtered before storage and grouped more efficiently to reduce unnecessary SQLite churn.

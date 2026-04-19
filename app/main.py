@@ -79,6 +79,7 @@ GLOBAL_STATE: dict[str, Any] = {
     "last_persisted_alert_keys": set(),
     "active_sos_alerts": [],
 }
+RATE_LIMIT_CACHE = TTLCache(maxsize=5000, ttl=10)
 TRANSLATION_CACHE = TTLCache(maxsize=1000, ttl=1800)
 LOCALIZED_SNAPSHOT_CACHE = TTLCache(maxsize=100, ttl=60)
 
@@ -763,7 +764,16 @@ async def update_profile(payload: ProfileRequest):
 
 
 @app.post("/api/v1/ask_ai")
-async def ask_ai(payload: AskAIRequest):
+async def ask_ai(payload: AskAIRequest, request: Request):
+    # Rate Limiting: Prevent spamming AI queries or SOS alerts
+    # Limits each IP to 5 requests per 10 seconds
+    client_ip = request.client.host or "unknown"
+    request_count = RATE_LIMIT_CACHE.get(client_ip, 0)
+    if request_count >= 5:
+        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait a few seconds before sending another query.")
+    RATE_LIMIT_CACHE[client_ip] = request_count + 1
+
     start_time = time.time()
     profile = payload.profile or FanProfile(**GLOBAL_STATE["current_profile"])
     snapshot = build_snapshot()
