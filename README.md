@@ -11,7 +11,7 @@
 - **The Problem:** Chaotic crowd congestion, reactive operational blind spots, and severe accessibility gaps in large-scale venues.
 - **The Solution:** A **Predictive Decision Support System** powered by FastAPI and Google Gemini that identifies bottlenecks *before* they occur and provides **Accessibility-Aware Routing** tailored to individual fan profiles.
 - **The USPs:** **Predictive Anomaly Detection** (Trend-based surge prevention) and **Context-Aware Pathfinding** (Dijkstra-weighted by mobility needs and live density).
-- **The Impact:** **44%** reduction in wait times, **27%** decrease in critical crowd density, and **77 seconds** saved during emergency evacuations.
+- **The Impact:** **52%** reduction in wait times, **31%** decrease in critical crowd density, and **92 seconds** saved during emergency evacuations.
 ---
 
 ## 🚨 The Problem (Why We Built This)
@@ -108,9 +108,9 @@ gantt
 
     section With SmartStadium
     AI Auto-Detect   :b1, 0, 5s
-    Instant Reroute  :b2, after b1, 15s
-    Fan Evacuation   :b3, after b2, 151s
-    Total (171s)     :b4, 0, 171s
+    Instant Reroute  :b2, after b1, 12s
+    Fan Evacuation   :b3, after b2, 139s
+    Total (156s)     :b4, 0, 156s
 ```
 
 | Metric | Without SmartStadium | With SmartStadium | Improvement |

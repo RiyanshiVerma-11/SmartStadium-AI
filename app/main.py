@@ -76,7 +76,7 @@ async def update_state_task():
 
 @asynccontextmanager
 async def lifespan_context(app: FastAPI):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     storage = Storage(DB_PATH)
     await storage.initialize()
     narrator = gemini_client
