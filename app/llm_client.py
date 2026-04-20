@@ -23,11 +23,17 @@ class AIResponse(BaseModel):
 class GeminiService:
     def __init__(self) -> None:
         self.api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
-        self.model_id: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash") # Changed default model
+        # Level 4 Refinement: Sanitize model ID to remove environment variable prefixes if present
+        raw_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.model_id = raw_model.split("=")[-1] if "=" in raw_model else raw_model
         
         self.client = None
         if self.api_key:
-            self.client = genai.Client(api_key=self.api_key)
+            # Reverted to v1beta for better structured output support (response_mime_type)
+            self.client = genai.Client(
+                api_key=self.api_key,
+                http_options={'api_version': 'v1beta'}
+            )
         
         self._cache: TTLCache = TTLCache(maxsize=100, ttl=300)
         self._embedding_cache: TTLCache = TTLCache(maxsize=500, ttl=300)
@@ -44,7 +50,7 @@ class GeminiService:
         try:
             # Optimized async embedding with new SDK
             result = await self.client.aio.models.embed_content(
-                model="models/text-embedding-004", # Prefix 'models/' added for SDK compliance
+                model="text-embedding-004", 
                 contents=text
             )
             embedding = result.embeddings[0].values
@@ -75,7 +81,7 @@ class GeminiService:
 
         try: # Fixed method name
             result = await self.client.aio.models.embed_content(
-                model="models/text-embedding-004", # Prefix 'models/' added for SDK compliance
+                model="text-embedding-004",
                 contents=to_fetch_texts
             )
             for idx, emb_data in zip(to_fetch_indices, result.embeddings):

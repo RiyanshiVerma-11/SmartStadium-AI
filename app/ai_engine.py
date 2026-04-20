@@ -110,7 +110,7 @@ class DecisionEngine:
         if not self.narrator:
             return None
 
-        # Lazy-load/Cache PO_I embeddings
+        # Lazy-load/Cache POI embeddings
         if not self._poi_embeddings:
             nodes = list(self.STADIUM_POIS.keys())
             descriptions = [self.STADIUM_POIS[n] for n in nodes]
@@ -124,6 +124,10 @@ class DecisionEngine:
                     emb = await self.narrator.get_embedding(description)
                     if emb:
                         self._poi_embeddings[node_id] = emb
+
+        # Return early if no POI embeddings are available to prevent vectorized math crashes
+        if not self._poi_embeddings:
+            return None
 
         if not hasattr(self.narrator, "get_embedding"):
             return None

@@ -56,7 +56,7 @@ async def test_best_gate(base_state):
     engine = DecisionEngine()
     # Gate A is closer than Gate B from section 112 in the graph
     profile = FanProfile(preferred_gate="gate_b")
-    gate_name, zone, status = engine._best_gate(base_state, profile.preferred_gate)
+    gate_name, zone, status, gate_id = engine._best_gate(base_state, profile.preferred_gate)
     assert gate_name == "Gate A"
     assert zone == "north_gate"
     assert status == "medium"

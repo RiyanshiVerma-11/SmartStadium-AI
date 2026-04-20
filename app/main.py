@@ -51,6 +51,30 @@ DB_PATH = Path(os.getenv("SMARTSTADIUM_DB_PATH", DATA_DIR / "smartstadium.db"))
 
 MAX_WS_CONNECTIONS = 5000
 
+GLOBAL_STATE: dict[str, Any] = {
+    "panic_mode": False,
+    "scenario": "normal",
+    "tick": 0,
+    "current_profile": {
+        "name": "Guest 112",
+        "seat_section": "112",
+        "preferred_gate": "gate_c",
+        "food_preference": "vegetarian",
+        "accessibility_need": "none",
+        "ticket_type": "vip",
+        "preferred_language": "en",
+    },
+    "latest_announcement": None,
+    "last_snapshot": None,
+    "last_persisted_alert_keys": set(),
+    "active_sos_alerts": [],
+    "heatmap_history": [],
+    "pending_staff_tasks": [],
+    "resolved_incident_ids": set(),
+    "resolved_sections_cooldown": {}, # section_id -> expiry_timestamp
+    "latest_ai_pa_suggestion": None,
+}
+
 def normalize_language(language: str | None) -> str:
     """Helper to standardize language codes (e.g., 'en-US' -> 'en')."""
     if not language:
@@ -71,7 +95,7 @@ async def update_state_task():
             GLOBAL_STATE["last_snapshot"] = snapshot
             await persist_snapshot(snapshot)
         except Exception as e:
-            logger.error(f"Error in background state update: {e}")
+            logger.error(f"Error in background state update task: {e}")
         await asyncio.sleep(5)  # Efficiency: Reduced to 5s for cloud-scale
 
 @asynccontextmanager
@@ -117,28 +141,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-GLOBAL_STATE: dict[str, Any] = {
-    "panic_mode": False,
-    "scenario": "normal",
-    "tick": 0,
-    "current_profile": {
-        "name": "Guest 112",
-        "seat_section": "112",
-        "preferred_gate": "gate_c",
-        "food_preference": "vegetarian",
-        "accessibility_need": "none",
-        "ticket_type": "vip",
-        "preferred_language": "en",
-    },
-    "latest_announcement": None,
-    "last_snapshot": None,
-    "last_persisted_alert_keys": set(),
-    "active_sos_alerts": [],
-    "heatmap_history": [],
-    "pending_staff_tasks": [],
-    "resolved_incident_ids": set(),
-    "latest_ai_pa_suggestion": None,
-}
 RATE_LIMIT_CACHE = TTLCache(maxsize=5000, ttl=10)
 TRANSLATION_CACHE = TTLCache(maxsize=1000, ttl=1800)
 LOCALIZED_SNAPSHOT_CACHE = TTLCache(maxsize=100, ttl=60)
@@ -451,6 +453,9 @@ def build_snapshot(increment_tick: bool = True) -> dict[str, Any]:
             "type": sos["type"],
             "msg": sos["msg"],
             "reasoning": sos["reasoning"],
+            "action": sos.get("action"),
+            "action_details": sos.get("action_details"),
+            "evac_path": sos.get("evac_path"),
             "play_sound": sos.get("play_sound"),
             "force_modal": sos.get("force_modal")
         })
@@ -742,7 +747,7 @@ async def staff_app(request: Request):
 
 @app.get("/api/v1/config")
 async def get_config(request: Request):
-    snapshot = GLOBAL_STATE["last_snapshot"] or build_snapshot()
+    snapshot = GLOBAL_STATE["last_snapshot"] or build_snapshot(increment_tick=False)
     return {
         "status": "success",
         "scenarios": [
@@ -770,7 +775,7 @@ async def get_config(request: Request):
 
 @app.get("/api/v1/snapshot")
 async def get_snapshot(request: Request):
-    snapshot = GLOBAL_STATE["last_snapshot"] or build_snapshot()
+    snapshot = GLOBAL_STATE["last_snapshot"] or build_snapshot(increment_tick=False)
     language = normalize_language(request.query_params.get("lang") or GLOBAL_STATE["current_profile"].get("preferred_language"))
     localized_snapshot = await localize_snapshot(snapshot, language)
     return {"status": "success", "snapshot": localized_snapshot}
@@ -848,6 +853,7 @@ async def set_scenario(payload: ScenarioRequest):
     GLOBAL_STATE["last_persisted_alert_keys"] = set()
     GLOBAL_STATE["latest_ai_pa_suggestion"] = None
     GLOBAL_STATE["resolved_incident_ids"] = set()
+    GLOBAL_STATE["resolved_sections_cooldown"] = {}
     
     # Clear caches to prevent zombie alerts from old scenario frames
     LOCALIZED_SNAPSHOT_CACHE.clear()
@@ -869,17 +875,25 @@ async def set_scenario(payload: ScenarioRequest):
 
 @app.post("/api/v1/tasks/resolve")
 async def resolve_task(payload: TaskResolveRequest, request: Request):
-    require_admin_role(request)
+    logger.info(f"Resolving task/SOS: {payload.task_id}")
+    # Allow fans to resolve SOS/Evacuation alerts; require admin only for staff-specific tasks
+    is_emergency_task = payload.task_id.startswith("sos-") or payload.task_id == "evac-override"
+    if not is_emergency_task:
+        require_admin_role(request)
 
-    # Track the ID globally to prevent reappearance in future ticks
-    GLOBAL_STATE["resolved_incident_ids"].add(payload.task_id)
-
-    # 1. Try to resolve from Staff Tasks
-    task = next((t for t in GLOBAL_STATE["pending_staff_tasks"] if t["id"] == payload.task_id), None)
-    if task:
+    now = int(time.time())
+    for task in [t for t in GLOBAL_STATE["pending_staff_tasks"] if t["id"] == payload.task_id]:
         task["status"] = "resolved"
         if len(GLOBAL_STATE["pending_staff_tasks"]) > 50:
             GLOBAL_STATE["pending_staff_tasks"] = GLOBAL_STATE["pending_staff_tasks"][-50:]
+
+    # 2. Try to resolve from Active SOS Alerts
+    sos_to_resolve = next((s for s in GLOBAL_STATE["active_sos_alerts"] if s.get("id") == payload.task_id), None)
+    if sos_to_resolve:
+        # Extract section from alert metadata or current profile to set cooldown
+        section = sos_to_resolve.get("evac_path", {}).get("start") or GLOBAL_STATE["current_profile"].get("seat_section", "unknown")
+        GLOBAL_STATE["resolved_sections_cooldown"][section] = now + 120 # Increased to 2 mins for safety
+        logger.info(f"SOS resolved for Section {section}. Cooldown active.")
 
     # Handle Emergency Override resolution
     is_evac_override = (payload.task_id == "evac-override")
@@ -887,7 +901,6 @@ async def resolve_task(payload: TaskResolveRequest, request: Request):
         GLOBAL_STATE["panic_mode"] = False
         logger.info("Emergency Override deactivated via task resolution.")
 
-    # 2. Try to resolve from Active SOS Alerts
     initial_sos_count = len(GLOBAL_STATE["active_sos_alerts"])
     GLOBAL_STATE["active_sos_alerts"] = [s for s in GLOBAL_STATE["active_sos_alerts"] if s.get("id") != payload.task_id]
     
@@ -923,6 +936,7 @@ async def update_profile(payload: ProfileRequest):
 @limiter.limit("5/minute")
 async def ask_ai(payload: AskAIRequest, request: Request):
     start_time = time.time()
+    now = int(time.time())
     profile = payload.profile or FanProfile(**GLOBAL_STATE["current_profile"])
     # Create a preview snapshot to inform the AI without advancing the simulation clock
     preview_snapshot = build_snapshot(increment_tick=False)
@@ -931,6 +945,22 @@ async def ask_ai(payload: AskAIRequest, request: Request):
     # 2. Unified Incident Management
     task_id = None
     if response.get("intent") == "emergency":
+        # World-Class Refinement: SOS Deduplication & Suppression Buffer
+        # Check if an active SOS alert already exists for this section.
+        existing_sos = next((a for a in GLOBAL_STATE["active_sos_alerts"] if profile.seat_section in a["msg"]), None)
+        
+        if existing_sos:
+            task_id = existing_sos["id"]
+            return {"status": "success", "response": response, "task_id": task_id}
+
+        # Check for recent manual resolution cooldown (Anti-Loop Protection)
+        cooldown_expiry = GLOBAL_STATE["resolved_sections_cooldown"].get(profile.seat_section, 0)
+        if now < cooldown_expiry:
+            logger.warning(f"Suppressed SOS re-trigger for Section {profile.seat_section} due to recent resolution.")
+            # Degrade the intent to general if it was just resolved to stop the loop
+            response["intent"] = "general"
+            return {"status": "success", "response": response}
+            
         task_id = f"sos-{int(time.time())}-{str(uuid.uuid4())[:4]}"
         action_directive = response.get("staff_action", "Immediate intervention required.")
         target_gate_id = preview_snapshot["route_plan"]["best_gate"]
@@ -1011,6 +1041,17 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.warning("WebSocket rate limit exceeded: rejecting connection.")
         await websocket.close(code=1008)
         return
+
+    # Level 4 Refinement: Connection Rate Limiting using the defined RATE_LIMIT_CACHE
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    if client_ip in RATE_LIMIT_CACHE:
+        if RATE_LIMIT_CACHE[client_ip] >= 10:  # Max 10 connection attempts per 10s window
+            logger.warning(f"WebSocket IP rate limit exceeded for {client_ip}")
+            await websocket.close(code=1008)
+            return
+        RATE_LIMIT_CACHE[client_ip] += 1
+    else:
+        RATE_LIMIT_CACHE[client_ip] = 1
 
     await ws_manager.connect(websocket)
     client_id = str(uuid.uuid4())
