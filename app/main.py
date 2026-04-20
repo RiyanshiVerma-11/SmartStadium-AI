@@ -3,35 +3,99 @@ import copy
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
-import logging
-import httpx
+import uuid
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("SmartStadium-API")
+import httpx
+from cachetools import TTLCache
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from app.ai_engine import DecisionEngine, FanProfile
+from app.llm_client import gemini_client
+from app.storage import Storage
+from app.websocket_manager import ws_manager
+from app.data.scenarios import SCENARIO_LIBRARY
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("SmartStadium-API")
+
+limiter = Limiter(key_func=get_remote_address)
+
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 GOOGLE_IDENTITY_CLIENT_ID = os.getenv("GOOGLE_IDENTITY_CLIENT_ID", "")
 GOOGLE_TRANSLATE_API_KEY = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
 GOOGLE_TTS_API_KEY = os.getenv("GOOGLE_TTS_API_KEY", "")
 GOOGLE_TTS_VOICE_NAME = os.getenv("GOOGLE_TTS_VOICE_NAME", "en-US-Neural2-C")
 ROLE_SIGNING_SECRET = os.getenv("SMARTSTADIUM_ROLE_SECRET", "smartstadium-dev-secret")
-from contextlib import asynccontextmanager
-from pathlib import Path
-from typing import Any
-from cachetools import TTLCache
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel, Field
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+DB_PATH = Path(os.getenv("SMARTSTADIUM_DB_PATH", DATA_DIR / "smartstadium.db"))
 
-# Security Headers Middleware
+MAX_WS_CONNECTIONS = 5000
+
+def normalize_language(language: str | None) -> str:
+    """Helper to standardize language codes (e.g., 'en-US' -> 'en')."""
+    if not language:
+        return "en"
+    lang = language.strip().lower()
+    if not lang:
+        return "en"
+    return lang.split("-")[0].split("_")[0]
+
+async def update_state_task():
+    """Background task to update stadium state periodically."""
+    while True:
+        try:
+            latest_announcement = GLOBAL_STATE.get("latest_announcement")
+            if latest_announcement and latest_announcement.get("expires_at", 0) <= int(time.time()):
+                GLOBAL_STATE["latest_announcement"] = None
+            snapshot = build_snapshot()
+            GLOBAL_STATE["last_snapshot"] = snapshot
+            await persist_snapshot(snapshot)
+        except Exception as e:
+            logger.error(f"Error in background state update: {e}")
+        await asyncio.sleep(5)  # Efficiency: Reduced to 5s for cloud-scale
+
+@asynccontextmanager
+async def lifespan_context(app: FastAPI):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    storage = Storage(DB_PATH)
+    await storage.initialize()
+    narrator = gemini_client
+    decision_engine = DecisionEngine(narrator=narrator)
+    http_client = httpx.AsyncClient(timeout=10.0)
+    app.state.storage = storage
+    app.state.decision_engine = decision_engine
+    app.state.http_client = http_client
+    bg_task = asyncio.create_task(update_state_task())
+    GLOBAL_STATE["bg_task"] = bg_task
+    yield
+    bg_task.cancel()
+    await storage.close()
+    await http_client.aclose()
+
+# Define 'app' with the lifespan context directly in constructor
+app = FastAPI(title="SmartStadium AI Premium", lifespan=lifespan_context)
+app.state.limiter = limiter
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -39,6 +103,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "no-referrer-when-downgrade"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://www.gstatic.com https://maps.googleapis.com https://translate.google.com https://accounts.google.com; "
@@ -49,16 +115,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "frame-src 'self' https://www.google.com https://accounts.google.com;"
         )
         return response
-
-from app.ai_engine import DecisionEngine, FanProfile
-from app.llm_client import GeminiNarrator
-from app.storage import Storage
-
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-DB_PATH = Path(os.getenv("SMARTSTADIUM_DB_PATH", DATA_DIR / "smartstadium.db"))
-
-from app.data.scenarios import SCENARIO_LIBRARY
 
 
 GLOBAL_STATE: dict[str, Any] = {
@@ -78,6 +134,10 @@ GLOBAL_STATE: dict[str, Any] = {
     "last_snapshot": None,
     "last_persisted_alert_keys": set(),
     "active_sos_alerts": [],
+    "heatmap_history": [],
+    "pending_staff_tasks": [],
+    "resolved_incident_ids": set(),
+    "latest_ai_pa_suggestion": None,
 }
 RATE_LIMIT_CACHE = TTLCache(maxsize=5000, ttl=10)
 TRANSLATION_CACHE = TTLCache(maxsize=1000, ttl=1800)
@@ -107,6 +167,9 @@ class AnnouncementRequest(BaseModel):
     broadcast: bool = True
     language: str | None = None
 
+class TaskResolveRequest(BaseModel):
+    task_id: str
+
 
 def calculate_improvements(before_ai: dict[str, float], after_ai: dict[str, float]) -> dict[str, float]:
     return {
@@ -125,7 +188,7 @@ def calculate_improvements(before_ai: dict[str, float], after_ai: dict[str, floa
 
 
 def _sign_role(role: str) -> str:
-    return hmac.new(ROLE_SIGNING_SECRET.encode("utf-8"), role.encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(ROLE_SIGNING_SECRET.encode("utf-8"), str(role).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _verify_role(role: str | None, signature: str | None) -> bool:
@@ -248,12 +311,45 @@ def build_match_info(match_tick: int) -> dict[str, str]:
     return {"teams": "Lions vs Tigers", "score": "3 - 1", "time": "FT", "status": "full_time"}
 
 
-def build_snapshot() -> dict[str, Any]:
+def build_snapshot(increment_tick: bool = True) -> dict[str, Any]:
     scenario_key = GLOBAL_STATE["scenario"]
     scenario = SCENARIO_LIBRARY[scenario_key]
     frames = scenario["frames"]
     frame = frames[GLOBAL_STATE["tick"] % len(frames)]
-    GLOBAL_STATE["tick"] += 1
+    if increment_tick:
+        GLOBAL_STATE["tick"] += 1
+
+    # 1. Predictive Anomaly Detection (Trend Analysis)
+    rank_map = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+    current_heatmap = frame["heatmaps"]
+    history = GLOBAL_STATE.get("heatmap_history", [])
+    history.append(current_heatmap)
+    if len(history) > 3:
+        history.pop(0)
+    GLOBAL_STATE["heatmap_history"] = history
+
+    predictive_warnings = []
+    if len(history) == 3:
+        for zone in current_heatmap:
+            v1 = rank_map.get(history[0].get(zone, "low"), 0)
+            v2 = rank_map.get(history[1].get(zone, "low"), 0)
+            v3 = rank_map.get(history[2].get(zone, "low"), 0)
+            if v3 > v2 > v1:
+                predictive_warnings.append({"zone": zone, "msg": f"Predictive: Rapid crowd growth at {zone.replace('_', ' ').title()}."})
+
+    # 2. Alert Filtering: Filter out scenario alerts that have been manually resolved
+    alerts = []
+    for alert in frame["alerts"]:
+        alert_id = hashlib.md5(f"{scenario_key}|{alert['msg']}".encode()).hexdigest()
+        if alert_id not in GLOBAL_STATE["resolved_incident_ids"]:
+            alert_copy = dict(alert)
+            alert_copy["id"] = alert_id
+            alerts.append(alert_copy)
+
+    # AI Suggested PA Announcement Logic
+    suggested_pa_message = GLOBAL_STATE.get("latest_ai_pa_suggestion") or "Operations are currently stable. Welcome to the stadium!"
+    if scenario_key == "weather_delay":
+        suggested_pa_message = "Weather Alert: Lightning in the area. Please move away from open seating and seek shelter in the concourses."
 
     before_ai = dict(frame["before_ai"])
     after_ai = dict(frame["after_ai"])
@@ -266,19 +362,24 @@ def build_snapshot() -> dict[str, Any]:
     temp_state = {"heatmaps": dict(frame["heatmaps"])}
     try:
         engine = app.state.decision_engine
-        _, calculated_gate_key, _ = engine._best_gate(temp_state, preferred_gate, str(profile.get("seat_section", "112")))
-    except Exception:
-        calculated_gate_key = preferred_gate
+        calculated_gate_key, calculated_zone_key, _, calculated_gate_id = engine._best_gate(
+            temp_state, preferred_gate, str(profile.get("seat_section", "112"))
+        )
+    except Exception as e:
+        logger.error(f"Error calculating best gate in snapshot: {e}")
+        calculated_gate_id = preferred_gate
+        calculated_gate_key = DecisionEngine._pretty_label(preferred_gate)
+        calculated_zone_key = DecisionEngine.GATE_ZONE_MAP.get(preferred_gate, "north_gate")
 
     bounty_active = frame.get("bounty_active", False)
     bounty_points = 60 if scenario_key in {"peak_rush", "gate_closure"} else 35
-    bounty_reason = frame.get("bounty_description") or f"Use {calculated_gate_key.replace('_', ' ').title()} to reduce crowding and improve reroute success."
+    bounty_reason = frame.get("bounty_description") or f"Use {calculated_gate_key} to reduce crowding and improve reroute success."
 
     bounties = []
     if bounty_active:
         bounties.append(
             {
-                "target": calculated_gate_key,
+                "target": calculated_gate_id,
                 "points": f"+{bounty_points}",
                 "reason": bounty_reason,
             }
@@ -294,12 +395,12 @@ def build_snapshot() -> dict[str, Any]:
         )
 
     personalized_route = {
-        "best_gate": calculated_gate_key,
+        "best_gate": calculated_gate_id,
         "seat_section": profile.get("seat_section", "112"),
         "accessibility_route": (
             "Use the low-slope East Hall corridor with elevator access."
             if accessibility != "none"
-            else f"Use the shortest marked path through {calculated_gate_key.replace('_', ' ').title()} toward Section {profile.get('seat_section', '112')}."
+            else f"Use the shortest marked path through {calculated_gate_key} toward Section {profile.get('seat_section', '112')}."
         ),
         "food_pickup": "Suite lane pickup" if profile.get("ticket_type") == "vip" else "Express cart near Concourse A",
     }
@@ -318,11 +419,32 @@ def build_snapshot() -> dict[str, Any]:
         ),
     }
 
-    alerts = list(frame["alerts"])
+    # Inject Predictive Warnings into the visible Alerts feed
+    for pw in predictive_warnings:
+        alerts.append({
+            "type": "warning",
+            "msg": pw["msg"],
+            "reasoning": f"AI detected a potential surge at {pw['zone'].replace('_', ' ').title()} based on recent trends."
+        })
+
+    # Inject Pending Staff Tasks into the visible Alerts feed
+    for task in GLOBAL_STATE.get("pending_staff_tasks", []):
+        if task["status"] == "pending":
+            alerts.append({
+                "id": task["id"],
+                "type": "info",
+                "msg": f"📋 New Task: {task['action']}",
+                "reasoning": f"AI-generated directive. Task ID: {task['id']}. Use /resolve to clear."
+            })
 
     # Add persistent SOS alerts to the snapshot so they remain visible in live feeds
     now = int(time.time())
-    GLOBAL_STATE["active_sos_alerts"] = [a for a in GLOBAL_STATE.get("active_sos_alerts", []) if a.get("expires_at", 0) > now]
+    # Level 4 Refinement: Purge expired and ALREADY RESOLVED SOS alerts
+    GLOBAL_STATE["active_sos_alerts"] = [
+        a for a in GLOBAL_STATE.get("active_sos_alerts", []) 
+        if a.get("expires_at", 0) > now and a.get("id") not in GLOBAL_STATE["resolved_incident_ids"]
+    ]
+
     for sos in GLOBAL_STATE["active_sos_alerts"]:
         alerts.append({
             "id": sos.get("id"),
@@ -334,11 +456,21 @@ def build_snapshot() -> dict[str, Any]:
         })
 
     if GLOBAL_STATE["panic_mode"]:
+        target_gate_name = calculated_gate_key.upper()
+        target_label = f"{target_gate_name} TO SAFE EXIT"
         alerts.append(
             {
+                "id": "evac-override",
                 "type": "critical",
-                "msg": "Manual evacuation override active. All fans must follow the nearest marked exits.",
-                "reasoning": "Command center initiated emergency egress.",
+                "msg": "Emergency Override: Evacuate",
+                "reasoning": "Follow staff instructions immediately. Use the nearest safe exit shown on map.",
+                "action_label": target_label,
+                "action": "show_map",
+                "action_details": {"type": "route", "target": calculated_gate_id, "ui_effect": "focus_map"},
+                "evac_path": {
+                    "start": profile.get("seat_section", "112"),
+                    "end": calculated_gate_id
+                }
             }
         )
 
@@ -359,7 +491,7 @@ def build_snapshot() -> dict[str, Any]:
     varied_temp = w["temp"] + (1 if GLOBAL_STATE["tick"] % 15 > 7 else 0)
 
     return {
-        "timestamp": int(time.time()),
+        "timestamp": time.time(),
         "scenario": scenario_key,
         "scenario_label": scenario["label"],
         "scenario_description": scenario["description"],
@@ -378,6 +510,8 @@ def build_snapshot() -> dict[str, Any]:
             "improvements": improvements,
         },
         "directives": directives,
+        "predictive_warnings": predictive_warnings,
+        "suggested_pa_message": suggested_pa_message,
         "personalization": profile,
         "route_plan": personalized_route,
         "match_info": match_info,
@@ -387,15 +521,6 @@ def build_snapshot() -> dict[str, Any]:
             "icon": w["icon"]
         }
     }
-
-
-def normalize_language(language: str | None) -> str:
-    if not language:
-        return "en"
-    lang = language.strip().lower()
-    if not lang:
-        return "en"
-    return lang.split("-")[0].split("_")[0]
 
 
 async def translate_text(text: str, target_language: str) -> str:
@@ -449,6 +574,9 @@ async def localize_snapshot(snapshot: dict[str, Any], language: str) -> dict[str
     if route.get("accessibility_route"):
         route["accessibility_route"] = await translate_text(route["accessibility_route"], target_language)
 
+    if localized.get("suggested_pa_message"):
+        localized["suggested_pa_message"] = await translate_text(localized["suggested_pa_message"], target_language)
+
     announcement = localized.get("announcement")
     if announcement and announcement.get("message") and target_language != announcement.get("language"):
         announcement["message"] = await translate_text(announcement["message"], target_language)
@@ -491,43 +619,9 @@ def calculate_delta(previous: dict[str, Any], current: dict[str, Any]) -> dict[s
     return delta
 
 
-async def update_state_task():
-    """Background task to update stadium state periodically."""
-    while True:
-        try:
-            latest_announcement = GLOBAL_STATE.get("latest_announcement")
-            if latest_announcement and latest_announcement.get("expires_at", 0) <= int(time.time()):
-                GLOBAL_STATE["latest_announcement"] = None
-            snapshot = build_snapshot()
-            GLOBAL_STATE["last_snapshot"] = snapshot
-            await persist_snapshot(snapshot)
-        except Exception as e:
-            logger.error(f"Error in background state update: {e}")
-        await asyncio.sleep(5)  # Efficiency: Reduced to 5s for cloud-scale
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    storage = Storage(DB_PATH)
-    await storage.initialize()
-    narrator = GeminiNarrator()
-    decision_engine = DecisionEngine(narrator=narrator)
-    http_client = httpx.AsyncClient(timeout=10.0)
-    app.state.storage = storage
-    app.state.decision_engine = decision_engine
-    app.state.http_client = http_client
-    
-    # Start background state update
-    bg_task = asyncio.create_task(update_state_task())
-    GLOBAL_STATE["bg_task"] = bg_task
-    
-    yield
-    
-    bg_task.cancel()
-    await http_client.aclose()
-
-app = FastAPI(title="SmartStadium AI Premium", lifespan=lifespan)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(SlowAPIMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 
 def get_template_context() -> dict[str, Any]:
@@ -536,14 +630,6 @@ def get_template_context() -> dict[str, Any]:
         "google_identity_client_id": GOOGLE_IDENTITY_CLIENT_ID,
         "google_tts_enabled": bool(GOOGLE_TTS_API_KEY),
     }
-
-
-def get_storage() -> Storage:
-    return app.state.storage
-
-
-def get_decision_engine() -> DecisionEngine:
-    return app.state.decision_engine
 
 
 async def persist_snapshot(snapshot: dict[str, Any]) -> None:
@@ -568,6 +654,19 @@ async def persist_snapshot(snapshot: dict[str, Any]) -> None:
     if new_alerts:
         await get_storage().log_events_batch(new_alerts)
     GLOBAL_STATE["last_persisted_alert_keys"] = current_alert_keys
+
+
+def get_storage() -> Storage:
+    # This function needs to be defined after `app` is initialized
+    # but before it's used in `persist_snapshot` which is called in `lifespan`.
+    # However, `persist_snapshot` is called *after* `app` is set up in lifespan.
+    # So, moving these helper functions here is appropriate.
+    return app.state.storage
+
+
+def get_decision_engine() -> DecisionEngine:
+    # This function needs to be defined after `app` is initialized
+    return app.state.decision_engine
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -687,6 +786,12 @@ async def toggle_panic(request: Request):
         actor="staff_operator",
         details={"panic_mode": GLOBAL_STATE["panic_mode"]},
     )
+    # Force immediate sync and clear caches
+    LOCALIZED_SNAPSHOT_CACHE.clear()
+    new_snapshot = build_snapshot(increment_tick=False)
+    GLOBAL_STATE["last_snapshot"] = new_snapshot
+    await persist_snapshot(new_snapshot)
+
     logger.info(f"Panic mode toggled to: {GLOBAL_STATE['panic_mode']}")
     return {"status": "success", "panic_mode": GLOBAL_STATE["panic_mode"]}
 
@@ -741,6 +846,18 @@ async def set_scenario(payload: ScenarioRequest):
     GLOBAL_STATE["scenario"] = payload.scenario
     GLOBAL_STATE["tick"] = 0
     GLOBAL_STATE["last_persisted_alert_keys"] = set()
+    GLOBAL_STATE["latest_ai_pa_suggestion"] = None
+    GLOBAL_STATE["resolved_incident_ids"] = set()
+    
+    # Clear caches to prevent zombie alerts from old scenario frames
+    LOCALIZED_SNAPSHOT_CACHE.clear()
+    TRANSLATION_CACHE.clear()
+    
+    # Force an immediate snapshot refresh so WebSockets broadcast the change instantly
+    new_snapshot = build_snapshot(increment_tick=False)
+    GLOBAL_STATE["last_snapshot"] = new_snapshot
+    await persist_snapshot(new_snapshot)
+
     await get_storage().log_operator_action(
         action="scenario_change",
         scenario=GLOBAL_STATE["scenario"],
@@ -749,6 +866,45 @@ async def set_scenario(payload: ScenarioRequest):
     )
     logger.info(f"Scenario changed to: {payload.scenario}")
     return {"status": "success", "scenario": GLOBAL_STATE["scenario"]}
+
+@app.post("/api/v1/tasks/resolve")
+async def resolve_task(payload: TaskResolveRequest, request: Request):
+    require_admin_role(request)
+
+    # Track the ID globally to prevent reappearance in future ticks
+    GLOBAL_STATE["resolved_incident_ids"].add(payload.task_id)
+
+    # 1. Try to resolve from Staff Tasks
+    task = next((t for t in GLOBAL_STATE["pending_staff_tasks"] if t["id"] == payload.task_id), None)
+    if task:
+        task["status"] = "resolved"
+        if len(GLOBAL_STATE["pending_staff_tasks"]) > 50:
+            GLOBAL_STATE["pending_staff_tasks"] = GLOBAL_STATE["pending_staff_tasks"][-50:]
+
+    # Handle Emergency Override resolution
+    is_evac_override = (payload.task_id == "evac-override")
+    if is_evac_override:
+        GLOBAL_STATE["panic_mode"] = False
+        logger.info("Emergency Override deactivated via task resolution.")
+
+    # 2. Try to resolve from Active SOS Alerts
+    initial_sos_count = len(GLOBAL_STATE["active_sos_alerts"])
+    GLOBAL_STATE["active_sos_alerts"] = [s for s in GLOBAL_STATE["active_sos_alerts"] if s.get("id") != payload.task_id]
+    
+    # Ensure the ID is blacklisted from reappearing in snapshots
+    GLOBAL_STATE["resolved_incident_ids"].add(payload.task_id)
+
+    # Force cache invalidation and state broadcast
+    LOCALIZED_SNAPSHOT_CACHE.clear()
+    
+    # Ensure we don't increment the simulation tick during a manual resolution
+    new_snapshot = build_snapshot(increment_tick=False)
+    GLOBAL_STATE["last_snapshot"] = new_snapshot
+    await persist_snapshot(new_snapshot)
+    
+    return {"status": "success", "task_id": payload.task_id}
+
+    # Removed strict 404 to allow idempotent 'Evacuate' clicks to succeed if already cleared
 
 
 @app.post("/api/v1/profile")
@@ -764,56 +920,61 @@ async def update_profile(payload: ProfileRequest):
 
 
 @app.post("/api/v1/ask_ai")
+@limiter.limit("5/minute")
 async def ask_ai(payload: AskAIRequest, request: Request):
-    # Rate Limiting: Prevent spamming AI queries or SOS alerts
-    # Limits each IP to 5 requests per 10 seconds
-    client_ip = request.client.host or "unknown"
-    request_count = RATE_LIMIT_CACHE.get(client_ip, 0)
-    if request_count >= 5:
-        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
-        raise HTTPException(status_code=429, detail="Too many requests. Please wait a few seconds before sending another query.")
-    RATE_LIMIT_CACHE[client_ip] = request_count + 1
-
     start_time = time.time()
     profile = payload.profile or FanProfile(**GLOBAL_STATE["current_profile"])
-    snapshot = build_snapshot()
-    response = await get_decision_engine().evaluate(snapshot, payload.prompt, profile)
-    
+    # Create a preview snapshot to inform the AI without advancing the simulation clock
+    preview_snapshot = build_snapshot(increment_tick=False)
+    response = await get_decision_engine().evaluate(preview_snapshot, payload.prompt, profile)
+
+    # 2. Unified Incident Management
+    task_id = None
+    if response.get("intent") == "emergency":
+        task_id = f"sos-{int(time.time())}-{str(uuid.uuid4())[:4]}"
+        action_directive = response.get("staff_action", "Immediate intervention required.")
+        target_gate_id = preview_snapshot["route_plan"]["best_gate"]
+        sos_alert = {
+            "id": task_id,
+            "type": "critical",
+            "msg": f"🚨 SOS: {profile.name} at Section {profile.seat_section}",
+            "reasoning": f"Action: {action_directive} | Query: {payload.prompt}",
+            "action": "show_map",
+            "action_details": {"type": "route", "target": target_gate_id, "ui_effect": "focus_map"},
+            "evac_path": {"start": profile.seat_section, "end": target_gate_id},
+            "expires_at": int(time.time()) + 300,
+            "force_modal": True
+        }
+        GLOBAL_STATE["active_sos_alerts"].append(sos_alert)
+    elif response.get("staff_action"):
+        task_id = f"task-{str(uuid.uuid4())[:6]}"
+        GLOBAL_STATE["pending_staff_tasks"].append({
+            "id": task_id,
+            "action": response["staff_action"],
+            "status": "pending",
+            "timestamp": int(time.time()),
+            "scenario": preview_snapshot["scenario"]
+        })
+
+    if task_id:
+        response["task_id"] = task_id
+
     await get_storage().insert_ai_query(
-        scenario=snapshot["scenario"],
+        scenario=preview_snapshot["scenario"],
         prompt=payload.prompt,
         profile=profile.model_dump(),
         response=response,
     )
+    # Finalize State: Build the actual snapshot including the newly added tasks/SOS
+    final_snapshot = build_snapshot(increment_tick=True)
+    GLOBAL_STATE["last_snapshot"] = final_snapshot
 
-    # If an emergency intent is detected, escalate it immediately to the event log so staff see it in their alerts panel
-    if response.get("intent") == "emergency":
-        sos_msg = f"🚨 SOS: {profile.name} at Section {profile.seat_section} [{time.strftime('%H:%M:%S')}]"
-        sos_alert = {
-            "id": f"sos-{int(time.time())}-{profile.seat_section}",
-            "type": "critical",
-            "msg": sos_msg,
-            "reasoning": f"Emergency triggered via AI Assistant. Fan Query: {payload.prompt}",
-            "expires_at": int(time.time()) + 180, # Keep in live feeds for 3 minutes
-            "play_sound": "emergency_alarm",
-            "force_modal": True
-        }
-        GLOBAL_STATE["active_sos_alerts"].append(sos_alert)
-        # Inject into current snapshot alerts so it appears in the staff UI immediately
-        snapshot["alerts"].append({"type": sos_alert["type"], "msg": sos_alert["msg"], "reasoning": sos_alert["reasoning"]})
-
-    await persist_snapshot(snapshot)
+    await persist_snapshot(final_snapshot)
     logger.info(f"AI Query Processed in {(time.time() - start_time) * 1000:.2f}ms")
     return {
         "status": "success",
-        "scenario": snapshot["scenario"],
-        "stadium_state": {
-            "heatmaps": snapshot["heatmaps"],
-            "wait_times_minutes": snapshot["wait_times_minutes"],
-            "emergency_override": snapshot["emergency_override"],
-            "route_plan": snapshot["route_plan"],
-            "evaluation": snapshot["evaluation"],
-        },
+        "scenario": final_snapshot["scenario"],
+        "stadium_state": final_snapshot,
         "response": response,
     }
 
@@ -826,6 +987,7 @@ async def analytics():
         "status": "success",
         "snapshot": snapshot,
         "analytics": analytics_data,
+        "pending_tasks": [t for t in GLOBAL_STATE["pending_staff_tasks"] if t["status"] == "pending"],
         "google_cloud_status": {
             "api_health": "100%",
             "gemini_latency_ms": 42,
@@ -843,22 +1005,16 @@ async def analytics():
     }
 
 
-import uuid
-ACTIVE_WS_CONNECTIONS = 0
-MAX_WS_CONNECTIONS = 5000
-
 @app.websocket("/ws/data")
 async def websocket_endpoint(websocket: WebSocket):
-    global ACTIVE_WS_CONNECTIONS
-    if ACTIVE_WS_CONNECTIONS >= MAX_WS_CONNECTIONS:
+    if len(ws_manager.active_connections) >= MAX_WS_CONNECTIONS:
         logger.warning("WebSocket rate limit exceeded: rejecting connection.")
         await websocket.close(code=1008)
         return
 
-    await websocket.accept()
-    ACTIVE_WS_CONNECTIONS += 1
+    await ws_manager.connect(websocket)
     client_id = str(uuid.uuid4())
-    logger.debug(f"WS Connected {client_id}. Total: {ACTIVE_WS_CONNECTIONS}")
+    logger.debug(f"WS Connected {client_id}. Total: {len(ws_manager.active_connections)}")
     try:
         requested_language = normalize_language(
             websocket.query_params.get("lang") or GLOBAL_STATE["current_profile"].get("preferred_language")
@@ -912,4 +1068,4 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         logger.debug(f"WS Disconnected {client_id}")
     finally:
-        ACTIVE_WS_CONNECTIONS -= 1
+        ws_manager.disconnect(websocket)

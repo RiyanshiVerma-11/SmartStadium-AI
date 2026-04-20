@@ -1,4 +1,4 @@
-fastapi
+fastapi==0.109.0
 uvicorn[standard]
 jinja2
 python-dotenv
@@ -9,5 +9,6 @@ itsdangerous
 pydantic
 aiosqlite
 cachetools
-google-generativeai
+google-genai
 numpy
+slowapi

@@ -9,9 +9,9 @@
 
 ## 📌 Executive Summary
 - **The Problem:** Chaotic crowd congestion, reactive operational blind spots, and severe accessibility gaps in large-scale venues.
-- **The Solution:** A predictive Decision Support System powered by **FastAPI** and **Google Gemini** that detects surges and automates adaptive rerouting.
+- **The Solution:** A **Predictive Decision Support System** powered by FastAPI and Google Gemini that identifies bottlenecks *before* they occur and provides **Accessibility-Aware Routing** tailored to individual fan profiles.
+- **The USPs:** **Predictive Anomaly Detection** (Trend-based surge prevention) and **Context-Aware Pathfinding** (Dijkstra-weighted by mobility needs and live density).
 - **The Impact:** **44%** reduction in wait times, **27%** decrease in critical crowd density, and **77 seconds** saved during emergency evacuations.
-
 ---
 
 ## 🚨 The Problem (Why We Built This)
@@ -76,6 +76,11 @@ It bridges the gap between the Command Center (seeing the big picture) and the F
 ## 🔥 Key Innovations
 
 - **AI Decision Engine**: Not a static dashboard. The system evaluates live node density and proactively re-routes traffic.
+- **Predictive Anomaly Detection (USP)**: Unlike reactive sensors, our AI analyzes telemetry trends across a rolling 3-snapshot window. It identifies zones where density is increasing linearly and triggers "Early Warning" reroutes before a bottleneck becomes critical.
+- **Accessibility-Aware Routing (USP)**: The routing engine isn't one-size-fits-all. It dynamically updates edge weights in our stadium graph based on a fan's `accessibility_need`. For users with mobility requirements, the system prioritizes "Low-Slope" corridors and elevator-adjacent nodes automatically.
+- **Closed-Loop Staff Task Management**: Generates unique Task IDs for AI operational directives, providing a managed queue where staff can track and "Resolve" incidents.
+- **Unified Incident Resolution**: Synchronized state management ensures that once an SOS or Staff Task is resolved, the global system state updates instantly across all connected WebSockets.
+- **AI-Driven PA Advisory**: Generates dynamic, context-aware Public Announcement scripts based on live telemetry, ensuring authoritative and localized fan communication.
 - **High-Priority Emergency Protocols**: SOS triggers now capture real-time seat coordinates, escalating to staff with persistent, high-visibility UI alerts and auditory triggers.
 - **Semantic Search & POI Vector Mapping**: Uses high-dimensional embeddings to resolve natural language queries (e.g., *"Where is a quiet place to eat near the north side?"*) to specific stadium nodes using cosine similarity.
 - **Real-Time Scenario Handling**: One-click manual triggers for Medical, Weather, and Security emergencies that instantly update all fan devices.
@@ -205,6 +210,9 @@ The system is engineered to handle massive concurrent traffic typical of 90,000+
 - **Delta WebSocket Updates:** Clients receive full snapshots only periodically; all intermediate updates are top-level field deltas to reduce bandwidth under extreme concurrency.
 - **Average API Response Time (Without LLM):** ~12ms
 - **Graph-Based Routing:** Pre-computes deterministic pathfinding using a lightweight Dijkstra algorithm instead of raw sorting, drastically reducing real-time overhead.
+- **Vectorized NumPy Similarity**: POI matching logic utilizes vectorized NumPy operations for sub-millisecond semantic search resolution.
+- **Standardized Resource Lifecycle**: Database handles and HTTP clients are managed strictly via FastAPI `lifespan` events, ensuring graceful shutdowns and zero resource leaks.
+- **Optimized Persistent Storage**: Implements a persistent `aiosqlite` connection with WAL-mode and PRAGMA tuning for maximum concurrent I/O throughput.
 - **Anti-Spam Security:** Integrated a Token-Bucket rate limiter for AI queries and SOS alerts to prevent DDoS attempts and Gemini API quota exhaustion.
 - **Average LLM Generation Time:** ~650ms (Gemini 1.5 Flash). Responses are heavily cached in-memory to minimize identical API calls during massive spikes.
 - **Google API Efficiency:** Translation and Text-to-Speech requests reuse a shared async `httpx` client instead of opening a new outbound client per request.

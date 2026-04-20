@@ -2,11 +2,14 @@ import re
 import json
 import heapq
 import time
+import logging
 import numpy as np
 from typing import Any
 from functools import lru_cache
 
 from pydantic import BaseModel
+
+logger = logging.getLogger("SmartStadium-AI-Engine")
 
 
 # Time-based cache for Dijkstra routing results (30-second TTL)
@@ -96,7 +99,7 @@ class DecisionEngine:
         Initialize the DecisionEngine.
 
         Args:
-            narrator: An optional LLM client (e.g., GeminiNarrator) used to provide
+            narrator: An optional LLM client (e.g., GeminiService) used to provide
                       natural language explanations and advanced reasoning.
         """
         self.narrator = narrator
@@ -104,27 +107,53 @@ class DecisionEngine:
 
     async def _get_semantic_target(self, query: str) -> str | None:
         """Use vector similarity to find the best POI match for a query."""
-        if not self.narrator or not hasattr(self.narrator, "get_embedding"):
+        if not self.narrator:
+            return None
+
+        # Lazy-load/Cache PO_I embeddings
+        if not self._poi_embeddings:
+            nodes = list(self.STADIUM_POIS.keys())
+            descriptions = [self.STADIUM_POIS[n] for n in nodes]
+            if hasattr(self.narrator, "get_embeddings"):
+                embeddings = await self.narrator.get_embeddings(descriptions)
+                for node_id, emb in zip(nodes, embeddings):
+                    if emb:
+                        self._poi_embeddings[node_id] = emb
+            elif hasattr(self.narrator, "get_embedding"):
+                for node_id, description in self.STADIUM_POIS.items():
+                    emb = await self.narrator.get_embedding(description)
+                    if emb:
+                        self._poi_embeddings[node_id] = emb
+
+        if not hasattr(self.narrator, "get_embedding"):
             return None
 
         query_emb = await self.narrator.get_embedding(query)
         if not query_emb:
             return None
 
-        # Lazy-load/Cache PO_I embeddings
-        if not self._poi_embeddings:
-            for node_id, description in self.STADIUM_POIS.items():
-                emb = await self.narrator.get_embedding(description)
-                if emb:
-                    self._poi_embeddings[node_id] = emb
+        # Sanity Check: If the model name was malformed in the narrator, 
+        # we skip semantic targeting to prevent a crash, falling back to rule-engine.
+        if not isinstance(query_emb, (list, np.ndarray)) or len(query_emb) == 0:
+            logger.error("Invalid embedding received. Skipping semantic target resolution.")
+            return None
 
-        best_node, best_score = None, 0.0
-        for node_id, poi_emb in self._poi_embeddings.items():
-            score = np.dot(query_emb, poi_emb) / (np.linalg.norm(query_emb) * np.linalg.norm(poi_emb))
-            if score > best_score:
-                best_node, best_score = node_id, score
-
-        return best_node if best_score > 0.7 else None
+        # Senior Engineer Refinement: Fully Vectorized Cosine Similarity
+        # Handle zero vectors and avoid division by zero using a small epsilon (1e-9)
+        nodes = list(self._poi_embeddings.keys())
+        embeddings = np.array([self._poi_embeddings[n] for n in nodes], dtype=np.float32)
+        query_vector = np.array(query_emb, dtype=np.float32)
+        
+        # Compute norms and similarity in a single vectorized pass
+        node_norms = np.linalg.norm(embeddings, axis=1)
+        query_norm = np.linalg.norm(query_vector)
+        denominators = (node_norms * query_norm) + 1e-9
+        similarities = np.dot(embeddings, query_vector) / denominators
+        
+        best_idx = np.argmax(similarities)
+        if similarities[best_idx] > 0.7:
+            return nodes[best_idx]
+        return None
 
     async def evaluate(self, state: dict[str, Any], prompt: str, profile: FanProfile) -> dict[str, Any]:
         """
@@ -252,7 +281,7 @@ class DecisionEngine:
         }
 
     def _handle_shortest_line(self, state: dict[str, Any], query: str, profile: FanProfile) -> dict[str, Any]:
-        gate_name, gate_zone, gate_status = self._best_gate(state, preferred_gate=profile.preferred_gate)
+        gate_name, gate_zone, gate_status, _ = self._best_gate(state, preferred_gate=profile.preferred_gate)
         return {
             "intent": "shortest_line",
             "message": f"{profile.name}, use {gate_name}. It is the least crowded route to Section {profile.seat_section}.",
@@ -269,7 +298,7 @@ class DecisionEngine:
         }
 
     def _handle_gate(self, state: dict[str, Any], query: str, profile: FanProfile) -> dict[str, Any]:
-        gate_name, gate_zone, gate_status = self._best_gate(state, preferred_gate=profile.preferred_gate)
+        gate_name, gate_zone, gate_status, _ = self._best_gate(state, preferred_gate=profile.preferred_gate)
         return {
             "intent": "gate",
             "message": f"Head to {gate_name}. It matches your route profile and has the smoothest flow at the moment.",
@@ -341,7 +370,7 @@ class DecisionEngine:
         }
 
     def _handle_general(self, state: dict[str, Any], query: str, profile: FanProfile) -> dict[str, Any]:
-        gate_name, _, _ = self._best_gate(state, preferred_gate=profile.preferred_gate)
+        gate_name, _, _, _ = self._best_gate(state, preferred_gate=profile.preferred_gate)
         scenario = self._pretty_label(state["scenario"])
         improvement = state["evaluation"]["improvements"]["avg_wait_improvement_pct"]
         return {
@@ -361,7 +390,7 @@ class DecisionEngine:
             "action": {"type": "inform", "target": gate_name},
         }
 
-    def _best_gate(self, state: dict[str, Any], preferred_gate: str, start_node: str = "112") -> tuple[str, str, str]:
+    def _best_gate(self, state: dict[str, Any], preferred_gate: str, start_node: str = "112") -> tuple[str, str, str, str]:
         """
         Determine the optimal gate using a lightweight graph-based Dijkstra algorithm,
         incorporating real-time crowd density as dynamic edge weights.
@@ -383,10 +412,11 @@ class DecisionEngine:
                 return (
                     cached_result["gate_name"],
                     cached_result["zone_key"],
-                    cached_result["gate_status"]
+                    cached_result["gate_status"],
+                    cached_result["gate_id"]
                 )
 
-        ranking = {"low": 1.0, "medium": 1.5, "high": 3.0, "critical": 10.0}
+        ranking = {"low": 1.0, "medium": 1.5, "high": 3.0, "critical": 500.0}
 
         # Calculate dynamic edge weights based on real-time zone density
         distances = {node: float('infinity') for node in self.STADIUM_GRAPH}
@@ -406,6 +436,12 @@ class DecisionEngine:
                     zone_key = self.GATE_ZONE_MAP[neighbor]
                     density = state["heatmaps"][zone_key]
                     density_penalty = ranking[density]
+                    
+                    # Proactive Penalty: If a zone has a predictive warning, treat it as more congested
+                    # than it currently is to steer fans away before it becomes 'critical'.
+                    if any(pw["zone"] == zone_key for pw in state.get("predictive_warnings", [])):
+                        density_penalty *= 1.5
+
                     # Slight bonus for preferred gate
                     if neighbor == preferred_gate:
                         density_penalty *= 0.8
@@ -427,11 +463,12 @@ class DecisionEngine:
             "gate_name": self._pretty_label(best_gate_key),
             "zone_key": zone_key,
             "gate_status": gate_status,
+            "gate_id": best_gate_key,
             "_heatmaps_hash": str(sorted(state["heatmaps"].items()))
         }
         RouteCache.set(cache_key, result)
 
-        return self._pretty_label(best_gate_key), zone_key, gate_status
+        return self._pretty_label(best_gate_key), zone_key, gate_status, best_gate_key
 
     @staticmethod
     def _pretty_label(value: str) -> str:
