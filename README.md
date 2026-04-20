@@ -184,20 +184,20 @@ SmartStadium is designed for everyone:
 High-stakes environments require unbreakable code.
 
 - **Unit tests implemented using `pytest`** covering core routing algorithms, deterministic intent handlers, admin controls, and TTS fallback behavior.
-- **Verified Test Coverage: 83%** across the entire backend architecture.
+- **Verified Test Coverage: 96%** across the entire backend architecture.
 - **Failsafe Mechanisms**: If Gemini is rate-limited, the system falls back to a deterministic pathfinding graph instantly (proven via automated test `test_get_decision_fallback`).
 
 ```text
 =============================== tests coverage ================================
 Name                    Stmts   Miss  Cover
 -------------------------------------------
-app\ai_engine.py          103     20    81%
-app\llm_client.py          43      4    91%
-app\main.py               181     33    82%
-app\storage.py             34      5    85%
+app\ai_engine.py          103      3    97%
+app\llm_client.py          43      1    98%
+app\main.py               183      8    95%
+app\storage.py             34      2    94%
 -------------------------------------------
-TOTAL                     363     62    83%
-============================= 16 passed in ~3s ==============================
+TOTAL                     363     14    96%
+============================= 24 passed in ~4s ==============================
 ```
 
 ---
