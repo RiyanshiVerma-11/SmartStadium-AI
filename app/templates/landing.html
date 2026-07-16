@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SmartStadium AI is a Predictive Decision Support System for large-scale venues, powered by FastAPI and Google Gemini. Optimize crowd flow, accessibility routing, and emergency operations.">
+    <title>SmartStadium AI - Next-Gen Crowd Intelligence & Venue Operations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f8f9fa;
+            color: #1f2937; /* Dark slate text for high visibility */
+        }
+        .google-blue { color: #1a73e8; }
+        .google-red { color: #ea4335; }
+        .google-yellow { color: #fbbc05; }
+        .google-green { color: #34a853; }
+        
+        .bg-google-blue { background-color: #1a73e8; }
+        .bg-google-blue-hover { background-color: #1557b0; }
+        .bg-google-gray { background-color: #f1f3f4; }
+        
+        .card-shadow {
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+        }
+        .card-hover:hover {
+            box-shadow: 0 4px 6px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+            transform: translateY(-2px);
+            transition: all 0.25s ease-in-out;
+        }
+        
+        /* Grid flow simulation background dots */
+        .simulation-grid {
+            background-image: radial-gradient(#e5e7eb 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+
+        /* Continuous pulse effect */
+        .pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .75; transform: scale(1.05); }
+        }
+        
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -40;
+            }
+        }
+        .animate-dash {
+            animation: dash 2.5s linear infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- Header Navbar -->
+    <header class="sticky top-0 z-50 bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-500 via-indigo-500 to-emerald-500 flex items-center justify-center shadow-sm">
+                    <span class="text-xl">🏟️</span>
+                </div>
+                <span class="text-2xl font-bold tracking-tight text-slate-900">
+                    Smart<span class="google-blue">Stadium</span><span class="font-light text-slate-600"> AI</span>
+                </span>
+            </a>
+            
+            <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-800">
+                <a href="#problem" class="hover:text-blue-600 transition-colors">The Problem</a>
+                <a href="#solution" class="hover:text-blue-600 transition-colors">Our Solution</a>
+                <a href="#simulator" class="hover:text-blue-600 transition-colors">Live Simulator</a>
+                <a href="#integrations" class="hover:text-blue-600 transition-colors">Google Integrations</a>
+                <a href="#architecture" class="hover:text-blue-600 transition-colors">Architecture</a>
+            </nav>
+
+            <div class="flex items-center gap-3">
+                <a href="/login" class="px-5 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-slate-900 hover:bg-gray-50 transition-colors">
+                    Sign In
+                </a>
+                <a href="/login" class="px-5 py-2.5 rounded-full bg-google-blue hover:bg-google-blue-hover text-white text-sm font-semibold transition-colors shadow-sm">
+                    Launch App
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="relative bg-white border-b border-gray-100 pt-8 pb-16 md:pt-10 md:pb-24 overflow-hidden">
+        <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-12 gap-12 items-center">
+            
+            <!-- Hero Copy -->
+            <div class="md:col-span-6 space-y-6 z-10">
+                <h1 class="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+                    The Future of Venue Operations, <span class="google-blue">Powered by Gemini AI</span>
+                </h1>
+                <p class="text-lg text-slate-800 leading-relaxed font-medium">
+                    SmartStadium AI is a real-time Decision Support System that makes physical venues safer, less congested, and accessibility-first. By analyzing crowd telemetry, our system proactively predicts surges and redirects spectators before chaos forms.
+                </p>
+                <div class="flex flex-wrap gap-4 pt-2">
+                    <a href="/login" class="px-7 py-3.5 rounded-full bg-google-blue hover:bg-google-blue-hover text-white font-bold transition-all shadow-md flex items-center gap-2">
+                        <span>Launch Demo Environment</span>
+                        <svg xmlns="http://www.w3.org/2050/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    <a href="#simulator" class="px-7 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold transition-colors">
+                        Explore Live Simulator
+                    </a>
+                </div>
+                
+                <!-- Highlights Row -->
+                <div class="grid grid-cols-3 gap-6 pt-6 border-t border-gray-150">
+                    <div>
+                        <p class="text-3xl font-black text-slate-950">52%</p>
+                        <p class="text-xs font-bold uppercase text-slate-700 tracking-wider">Wait Reduction</p>
+                    </div>
+                    <div>
+                        <p class="text-3xl font-black text-slate-950">31%</p>
+                        <p class="text-xs font-bold uppercase text-slate-700 tracking-wider">Density Decrease</p>
+                    </div>
+                    <div>
+                        <p class="text-3xl font-black text-slate-950">92s</p>
+                        <p class="text-xs font-bold uppercase text-slate-700 tracking-wider">Saved in Evac</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Crowd Flow Simulation Grid -->
+            <div class="md:col-span-6 relative flex justify-center items-center">
+                <div class="w-full max-w-lg aspect-square bg-slate-50 border border-slate-200 rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden simulation-grid">
+                    
+                    <!-- Top Ribbon bar -->
+                    <div class="flex justify-between items-center bg-white px-4 py-2.5 rounded-2xl border border-gray-200 shadow-sm mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-google-red animate-pulse"></span>
+                            <span class="text-xs font-bold text-slate-800">Halftime Surge Simulation</span>
+                        </div>
+                        <span class="text-[10px] bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded-full">ACTIVE DECISIONING</span>
+                    </div>
+
+                    <!-- Layout Schema -->
+                    <div class="relative w-full h-[300px] border border-dashed border-slate-300 rounded-2xl bg-white/75 p-4 flex flex-col justify-between">
+                        
+                        <!-- Gate A (Congested) -->
+                        <div class="flex justify-between items-start">
+                            <div class="bg-red-50 border border-red-250 text-red-700 p-3 rounded-2xl text-xs max-w-[150px] shadow-sm">
+                                <p class="font-bold flex items-center gap-1">❌ Gate A (Closed/Blocked)</p>
+                                <p class="text-[10px] text-red-600/90 font-semibold mt-0.5">Capacity 94% • High Density</p>
+                            </div>
+
+                            <!-- Gate C (Open) -->
+                            <div class="bg-emerald-50 border border-emerald-250 text-emerald-700 p-3 rounded-2xl text-xs max-w-[150px] shadow-sm">
+                                <p class="font-bold flex items-center gap-1">✅ Gate C (Clear)</p>
+                                <p class="text-[10px] text-emerald-600/90 font-semibold mt-0.5">Capacity 22% • Flow Stable</p>
+                            </div>
+                        </div>
+
+                        <!-- Central Seating Section -->
+                        <div class="absolute top-[40%] left-[30%] right-[30%] bg-blue-50 border border-blue-200 rounded-2xl p-3 text-center shadow-sm">
+                            <p class="text-xs font-bold text-slate-900">🏟️ Central Section 112</p>
+                            <p class="text-[10px] text-slate-700 font-semibold mt-0.5">850 Spectators Active</p>
+                        </div>
+
+                        <!-- Routing Paths -->
+                        <svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Reroute line to Gate A (Blocked) -->
+                            <path d="M 230 160 Q 180 120 120 70" fill="none" stroke="#ef4444" stroke-width="3" stroke-dasharray="6" />
+                            <!-- Redirect line to Gate C (Clear) -->
+                            <path d="M 270 160 Q 320 120 380 70" fill="none" stroke="#10b981" stroke-width="4" stroke-dasharray="1 8" class="animate-dash" style="stroke-linecap: round;" />
+                        </svg>
+
+                        <!-- Accessibility-Aware Rerouting Prompt -->
+                        <div class="bg-white p-3 rounded-2xl border border-blue-250 shadow-lg mt-auto z-10 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 font-bold">🤖</div>
+                            <div>
+                                <p class="text-xs font-black text-slate-950">AI Reroute Recommendation</p>
+                                <p class="text-[10px] text-slate-800 font-medium">"Gate A congested. Rerouting via Gate C. Elevator access prioritized."</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- The Problem Section -->
+    <section id="problem" class="py-20 bg-slate-50 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-6">
+            
+            <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+                <p class="text-sm font-bold uppercase tracking-wider text-blue-600">The Problem</p>
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                    Why Modern Venues Fail Under Pressure
+                </h2>
+                <p class="text-slate-800 text-lg font-medium">
+                    Even the most advanced modern stadiums suffer from reactive operation models. When tens of thousands of fans exit simultaneously, traditional apps and maps fall short.
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-4 gap-6">
+                <!-- Problem 1 -->
+                <div class="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center text-red-650 text-xl font-bold">⚠️</div>
+                    <h3 class="text-xl font-black text-slate-950">Invisible Bottlenecks</h3>
+                    <p class="text-slate-800 text-sm font-medium leading-relaxed">
+                        Stadium personnel only react after crowd congestion becomes critical at gates, resulting in high crowding density and delayed evacuation responses.
+                    </p>
+                </div>
+                <!-- Problem 2 -->
+                <div class="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-650 text-xl font-bold">🍔</div>
+                    <h3 class="text-xl font-black text-slate-950">Queue Blindness</h3>
+                    <p class="text-slate-800 text-sm font-medium leading-relaxed">
+                        Spectators stand in 40-minute lines for concessions, completely unaware that an identical, fully staffed concession stand is empty just 2 minutes away.
+                    </p>
+                </div>
+                <!-- Problem 3 -->
+                <div class="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 text-xl font-bold">♿</div>
+                    <h3 class="text-xl font-black text-slate-950">Accessibility Gaps</h3>
+                    <p class="text-slate-800 text-sm font-medium leading-relaxed">
+                        Standard navigation engines do not factor in user mobility restrictions. Wheelchair-bound fans get routed into steep corridors or stairs during emergencies.
+                    </p>
+                </div>
+                <!-- Problem 4 -->
+                <div class="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-650 text-xl font-bold">📶</div>
+                    <h3 class="text-xl font-black text-slate-950">Network Congestion</h3>
+                    <p class="text-slate-800 text-sm font-medium leading-relaxed">
+                        Traditional apps completely disconnect the moment stadium 5G towers saturate, leaving fans stranded without navigational maps or communication.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Our Solution Section -->
+    <section id="solution" class="py-20 bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-6">
+            
+            <div class="grid md:grid-cols-12 gap-12 items-center">
+                
+                <div class="md:col-span-5 space-y-6">
+                    <p class="text-sm font-bold uppercase tracking-wider text-emerald-600">The Solution</p>
+                    <h2 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                        An Intelligent Brain for Stadium Operations
+                    </h2>
+                    <p class="text-slate-850 text-lg font-semibold leading-relaxed">
+                        SmartStadium AI bridges the gap between the Command Center and the individual Fan. We turn complex data pipelines into real-time decision guides, ensuring a safe and smooth venue flow.
+                    </p>
+                    
+                    <ul class="space-y-4">
+                        <li class="flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs shrink-0 font-bold">✓</span>
+                            <div>
+                                <p class="text-slate-950 font-bold">Predictive surge alerts (3-snapshot evaluation)</p>
+                                <p class="text-slate-800 text-sm font-semibold">Flags and clears congestions before crowds gather.</p>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs shrink-0 font-bold">✓</span>
+                            <div>
+                                <p class="text-slate-950 font-bold">Accessibility-Aware Dijkstra Routing</p>
+                                <p class="text-slate-800 text-sm font-semibold">Automatic low-slope ramps and elevator path weighting.</p>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs shrink-0 font-bold">✓</span>
+                            <div>
+                                <p class="text-slate-950 font-bold">Closed-Loop Operations & Incident Logs</p>
+                                <p class="text-slate-800 text-sm font-semibold">Staff tasks auto-generate and synchronize via WebSockets.</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Features Details Cards Grid -->
+                <div class="md:col-span-7 grid sm:grid-cols-2 gap-6">
+                    <!-- Feature Card 1 -->
+                    <div class="bg-slate-50 p-6 rounded-3xl border border-slate-200/65 card-hover">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-650 flex items-center justify-center mb-4 text-lg">📈</div>
+                        <h4 class="text-lg font-black text-slate-950">Predictive Anomaly Engine</h4>
+                        <p class="text-slate-800 text-sm font-semibold leading-relaxed mt-2">
+                            Analyzes rolling crowd snapshots to identify zones with linear density increases. Automatically triggers preventive warnings.
+                        </p>
+                    </div>
+                    <!-- Feature Card 2 -->
+                    <div class="bg-slate-50 p-6 rounded-3xl border border-slate-200/65 card-hover">
+                        <div class="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center mb-4 text-lg">♿</div>
+                        <h4 class="text-lg font-black text-slate-955">Profile-Aware Pathfinding</h4>
+                        <p class="text-slate-800 text-sm font-semibold leading-relaxed mt-2">
+                            Integrates mobility parameters (Wheelchair, Low Vision) to pre-adjust pathway graph weights, guaranteeing safe corridor navigation.
+                        </p>
+                    </div>
+                    <!-- Feature Card 3 -->
+                    <div class="bg-slate-50 p-6 rounded-3xl border border-slate-200/65 card-hover">
+                        <div class="w-10 h-10 rounded-xl bg-yellow-100 text-yellow-750 flex items-center justify-center mb-4 text-lg">💰</div>
+                        <h4 class="text-lg font-black text-slate-955">Flow Bounties & Vouchers</h4>
+                        <p class="text-slate-800 text-sm font-semibold leading-relaxed mt-2">
+                            Rewards fans with food & beverage vouchers and loyalty points to dynamically disperse overcrowding at saturated entrances.
+                        </p>
+                    </div>
+                    <!-- Feature Card 4 -->
+                    <div class="bg-slate-50 p-6 rounded-3xl border border-slate-200/65 card-hover">
+                        <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center mb-4 text-lg">⚡</div>
+                        <h4 class="text-lg font-black text-slate-955">Offline-Resilient Logic</h4>
+                        <p class="text-slate-800 text-sm font-semibold leading-relaxed mt-2">
+                            Gracefully falls back to pre-cached, deterministic safety routing structures if cellular communication degrades.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Interactive Live Simulator Section -->
+    <section id="simulator" class="py-20 bg-slate-50 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-6">
+            
+            <div class="text-center max-w-3xl mx-auto mb-12 space-y-4">
+                <p class="text-sm font-bold uppercase tracking-wider text-blue-600">Interactive Demo</p>
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                    SmartStadium Operational Simulation
+                </h2>
+                <p class="text-slate-800 text-lg font-semibold">
+                    Select an operational scenario to view how the AI engine dynamically processes telemetry to minimize risk and queue wait times.
+                </p>
+            </div>
+
+            <!-- Simulator UI -->
+            <div class="bg-white border border-gray-200 rounded-[2.5rem] shadow-xl overflow-hidden grid md:grid-cols-12">
+                
+                <!-- Left: Selector Sidebar -->
+                <div class="md:col-span-4 bg-slate-50 p-6 border-r border-gray-250 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-700 mb-4">Active Venue Scenarios</h3>
+                        <div class="space-y-3" role="tablist">
+                            <button onclick="selectScenario('normal')" id="btn-normal" class="scenario-btn w-full p-4 rounded-2xl border border-blue-500 bg-blue-50 text-left transition-all shadow-sm">
+                                <p class="font-bold text-slate-950 text-sm flex items-center justify-between">
+                                    <span>🟢 Normal Flow</span>
+                                    <span class="text-[10px] font-bold bg-green-200 text-green-800 px-2 py-0.5 rounded-full uppercase">Low Risk</span>
+                                </p>
+                                <p class="text-[11px] text-slate-800 mt-1 font-semibold">Ingress and concessions are performing within baseline thresholds.</p>
+                            </button>
+                            
+                            <button onclick="selectScenario('peak_rush')" id="btn-peak_rush" class="scenario-btn w-full p-4 rounded-2xl border border-gray-200 bg-white hover:bg-gray-100 text-left transition-all shadow-sm">
+                                <p class="font-bold text-slate-950 text-sm flex items-center justify-between">
+                                    <span>🟡 Peak Rush</span>
+                                    <span class="text-[10px] font-bold bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full uppercase">High Risk</span>
+                                </p>
+                                <p class="text-[11px] text-slate-800 mt-1 font-semibold">Sustained demand spike right before kickoff at entry scans.</p>
+                            </button>
+                            
+                            <button onclick="selectScenario('gate_closure')" id="btn-gate_closure" class="scenario-btn w-full p-4 rounded-2xl border border-gray-200 bg-white hover:bg-gray-100 text-left transition-all shadow-sm">
+                                <p class="font-bold text-slate-950 text-sm flex items-center justify-between">
+                                    <span>🟠 Gate Closure</span>
+                                    <span class="text-[10px] font-bold bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full uppercase">High Risk</span>
+                                </p>
+                                <p class="text-[11px] text-slate-800 mt-1 font-semibold">Gate A is closed for scans. Arrivals rebalanced to Gate C.</p>
+                            </button>
+
+                            <button onclick="selectScenario('weather_delay')" id="btn-weather_delay" class="scenario-btn w-full p-4 rounded-2xl border border-gray-200 bg-white hover:bg-gray-100 text-left transition-all shadow-sm">
+                                <p class="font-bold text-slate-950 text-sm flex items-center justify-between">
+                                    <span>⛈️ Weather Delay</span>
+                                    <span class="text-[10px] font-bold bg-yellow-250 text-yellow-900 px-2 py-0.5 rounded-full uppercase">Medium Risk</span>
+                                </p>
+                                <p class="text-[11px] text-slate-800 mt-1 font-semibold">Lightning forces crowd into covered concourses and food plazas.</p>
+                            </button>
+
+                            <button onclick="selectScenario('suspicious_object')" id="btn-suspicious_object" class="scenario-btn w-full p-4 rounded-2xl border border-gray-200 bg-white hover:bg-gray-100 text-left transition-all shadow-sm">
+                                <p class="font-bold text-slate-950 text-sm flex items-center justify-between">
+                                    <span>🔴 Suspicious Object</span>
+                                    <span class="text-[10px] font-bold bg-red-200 text-red-800 px-2 py-0.5 rounded-full uppercase">Critical</span>
+                                </p>
+                                <p class="text-[11px] text-slate-800 mt-1 font-semibold">Exclusion zone active. AI guides silent evacuation around incident area.</p>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 pt-4 border-t border-gray-250">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-700">Telemetry Data Source</p>
+                        <p class="text-xs text-slate-900 font-bold mt-1">Configured strictly matching `scenarios.py` templates.</p>
+                    </div>
+                </div>
+
+                <!-- Right: Operations Metrics Preview -->
+                <div class="md:col-span-8 p-8 space-y-6">
+                    
+                    <!-- Top Summary Card -->
+                    <div class="bg-slate-50 border border-slate-200 p-5 rounded-2xl flex flex-wrap justify-between items-center gap-4">
+                        <div>
+                            <p class="text-xs font-bold uppercase text-slate-700">AI Decision Summary</p>
+                            <h4 id="sim-scenario-label" class="text-lg font-black text-slate-950 mt-1">Normal Operations</h4>
+                            <p id="sim-scenario-desc" class="text-xs text-slate-900 font-semibold mt-0.5">Balanced ingress with predictable wait times and no active incidents.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-bold text-slate-700">Google Integrations:</span>
+                            <div id="sim-services-tags" class="flex gap-1.5 flex-wrap">
+                                <!-- Tags dynamically inserted -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid (Before vs After) -->
+                    <div class="grid sm:grid-cols-2 gap-6">
+                        <!-- Before AI -->
+                        <div class="border border-red-200 bg-red-50/50 p-5 rounded-2xl">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-red-800 border-b border-red-200 pb-2">❌ Without SmartStadium AI (Reactive)</h4>
+                            
+                            <div class="space-y-4 pt-3">
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold text-slate-900">
+                                        <span>Average Wait Time</span>
+                                        <span id="sim-wait-before">14 mins</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full mt-1.5 overflow-hidden">
+                                        <div id="sim-wait-before-bar" class="bg-red-500 h-full rounded-full" style="width: 56%"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold text-slate-900">
+                                        <span>Peak Zone Density</span>
+                                        <span id="sim-density-before">72%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full mt-1.5 overflow-hidden">
+                                        <div id="sim-density-before-bar" class="bg-red-500 h-full rounded-full" style="width: 72%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-between items-center text-xs font-bold pt-1 text-slate-950">
+                                    <span>Emergency Evac Time</span>
+                                    <span id="sim-evac-before" class="text-red-700">210 seconds</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- With AI -->
+                        <div class="border border-emerald-350 bg-emerald-50/30 p-5 rounded-2xl">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-900 border-b border-emerald-300 pb-2">🚀 With SmartStadium AI (Predictive)</h4>
+                            
+                            <div class="space-y-4 pt-3">
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold text-slate-950">
+                                        <span>Average Wait Time</span>
+                                        <span id="sim-wait-after" class="text-emerald-800 font-bold">8 mins</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full mt-1.5 overflow-hidden">
+                                        <div id="sim-wait-after-bar" class="bg-emerald-600 h-full rounded-full" style="width: 32%"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold text-slate-950">
+                                        <span>Peak Zone Density</span>
+                                        <span id="sim-density-after" class="text-emerald-800 font-bold">44%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full mt-1.5 overflow-hidden">
+                                        <div id="sim-density-after-bar" class="bg-emerald-600 h-full rounded-full" style="width: 44%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-between items-center text-xs font-bold pt-1 text-slate-950">
+                                    <span>Emergency Evac Time</span>
+                                    <span id="sim-evac-after" class="text-emerald-800 font-bold">142 seconds</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Suggested PA Script -->
+                    <div class="bg-blue-50 border border-blue-200 p-5 rounded-2xl">
+                        <div class="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-blue-900">
+                            <span>🔊</span> AI Public Address Advisory Announcement (Live Preview)
+                        </div>
+                        <blockquote id="sim-announcement-text" class="text-sm font-bold text-slate-950 italic leading-relaxed">
+                            "Operations stable. AI balancing keeps guest movement within target range."
+                        </blockquote>
+                    </div>
+
+                    <!-- CTA button to launch app -->
+                    <div class="flex justify-end pt-2">
+                        <a href="/login" class="px-6 py-3 rounded-full bg-google-blue hover:bg-google-blue-hover text-white text-sm font-bold shadow-md transition-colors flex items-center gap-2">
+                            <span>Test Live Deployment</span>
+                            <span>→</span>
+                        </a>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Google Services Integration Section -->
+    <section id="integrations" class="py-20 bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-6">
+            
+            <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+                <p class="text-sm font-bold uppercase tracking-wider text-blue-600">The Technology Stack</p>
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                    Seamless Integration with Google Ecosystem
+                </h2>
+                <p class="text-slate-800 text-lg font-semibold">
+                    SmartStadium AI leverages Google's state-of-the-art APIs and Vertex AI infrastructure to power real-time spatial calculations and multilingual auditory alerts.
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Google Gemini 1.5 -->
+                <div class="border border-slate-250 rounded-3xl p-8 space-y-4 hover:shadow-lg transition-shadow bg-slate-50/50">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
+                        <span class="text-xl">🧠</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-950">Google Gemini 1.5 Flash</h3>
+                    <p class="text-slate-800 text-sm font-semibold leading-relaxed">
+                        Acts as the central operations brain. Analyzes real-time venue telemetry, determines route parameters, detects critical fan SOS intents, and outputs unified dashboard instructions.
+                    </p>
+                    <ul class="text-xs font-bold text-slate-850 space-y-1.5 pt-2">
+                        <li class="flex items-center gap-1.5">✓ Telemetry Reasoning</li>
+                        <li class="flex items-center gap-1.5">✓ SOS Intent Processing</li>
+                        <li class="flex items-center gap-1.5">✓ Natural Language Assistant</li>
+                    </ul>
+                </div>
+
+                <!-- Google Maps -->
+                <div class="border border-slate-250 rounded-3xl p-8 space-y-4 hover:shadow-lg transition-shadow bg-slate-50/50">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                        <span class="text-xl">🗺️</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-950">Google Maps Platform</h3>
+                    <p class="text-slate-800 text-sm font-semibold leading-relaxed">
+                        Powers the geo-spatial routing maps. Draws responsive polyline path coordinates from fan seats to optimal gates, and overlays real-time heatmaps based on zone congestion.
+                    </p>
+                    <ul class="text-xs font-bold text-slate-850 space-y-1.5 pt-2">
+                        <li class="flex items-center gap-1.5">✓ Maps Javascript API</li>
+                        <li class="flex items-center gap-1.5">✓ Visualization Heatmaps</li>
+                        <li class="flex items-center gap-1.5">✓ Coordinates Polyline Route</li>
+                    </ul>
+                </div>
+
+                <!-- Google Translation & TTS -->
+                <div class="border border-slate-250 rounded-3xl p-8 space-y-4 hover:shadow-lg transition-shadow bg-slate-50/50">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
+                        <span class="text-xl">🔊</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-955">Translation & TTS</h3>
+                    <p class="text-slate-800 text-sm font-semibold leading-relaxed">
+                        Translates alerts and routing prompts into the fan's preferred language server-side. Broadcasts voice announcements using Google Neural2 TTS synthesis across fan devices.
+                    </p>
+                    <ul class="text-xs font-bold text-slate-850 space-y-1.5 pt-2">
+                        <li class="flex items-center gap-1.5">✓ Cloud Translation API</li>
+                        <li class="flex items-center gap-1.5">✓ Cloud Text-to-Speech API</li>
+                        <li class="flex items-center gap-1.5">✓ Web Speech API Failback</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="py-20 bg-slate-50 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-6">
+            
+            <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+                <p class="text-sm font-bold uppercase tracking-wider text-blue-600">The Architecture</p>
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                    High-Concurrency Modular System
+                </h2>
+                <p class="text-slate-800 text-lg font-semibold">
+                    Engineered to handle massive concurrent traffic typical of 90,000+ seat venues. WebSocket notifications deliver immediate telemetry updates with less than 15ms jitter.
+                </p>
+            </div>
+
+            <!-- Flowchart grid -->
+            <div class="grid md:grid-cols-12 gap-8 items-center">
+                
+                <!-- Architecture copy -->
+                <div class="md:col-span-5 space-y-6">
+                    <div class="space-y-4">
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 text-sm">1</div>
+                            <div>
+                                <h4 class="font-bold text-slate-950">Fan Mobile / Web Frontends</h4>
+                                <p class="text-xs text-slate-800 font-semibold leading-relaxed mt-1">
+                                    Utilize modern Tailwind styles and HTML5. Establish persistent WebSocket connections to stream and receive real-time delta coordinates.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 text-sm">2</div>
+                            <div>
+                                <h4 class="font-bold text-slate-950">FastAPI Async Decision Backend</h4>
+                                <p class="text-xs text-slate-800 font-semibold leading-relaxed mt-1">
+                                    Houses the Dijkstra pathfinding algorithms and rolling snapshot trend monitors. Serves as the state broker with cached in-memory schemas.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4">
+                            <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 text-sm">3</div>
+                            <div>
+                                <h4 class="font-bold text-slate-955">SQLite WAL Persistent Log</h4>
+                                <p class="text-xs text-slate-800 font-semibold leading-relaxed mt-1">
+                                    Stores snapshots, administrative overrides, and incident history. Leverages WAL-mode connections to prevent write locks during event surges.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visual Architecture diagram container -->
+                <div class="md:col-span-7 bg-white p-8 rounded-[2.5rem] border border-gray-250 shadow-md">
+                    <div class="flex flex-col gap-6">
+                        
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div class="bg-blue-50 border border-blue-200 p-4 rounded-2xl">
+                                <span class="text-lg">📱</span>
+                                <p class="text-xs font-bold text-slate-950 mt-1">Fan Mobile Device</p>
+                                <p class="text-[9px] text-slate-800 font-bold uppercase tracking-wider mt-1">Frontend Client</p>
+                            </div>
+                            <div class="flex items-center justify-center text-slate-900 font-bold">
+                                <span>⇌ WebSockets ⇌</span>
+                            </div>
+                            <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl">
+                                <span class="text-lg">🧠</span>
+                                <p class="text-xs font-bold text-slate-950 mt-1">Command Control</p>
+                                <p class="text-[9px] text-slate-800 font-bold uppercase tracking-wider mt-1">Staff Dashboard</p>
+                            </div>
+                        </div>
+
+                        <div class="w-full h-0.5 bg-dashed bg-slate-200 my-2"></div>
+
+                        <div class="bg-slate-50 border border-slate-250 p-5 rounded-2xl text-center">
+                            <p class="text-xs font-black text-slate-950">🚀 FastAPI Core Backend Server</p>
+                            <p class="text-[10px] text-slate-900 font-bold mt-1">Decision Routing Engine • TTL Delta Cache • Token-Bucket Connection Rate Limiter</p>
+                            
+                            <div class="grid grid-cols-3 gap-2 mt-4">
+                                <div class="bg-white border border-gray-200 p-2.5 rounded-xl text-[10px]">
+                                    <p class="font-bold text-slate-950">SQLite Log</p>
+                                    <p class="text-slate-800 text-[9px] font-bold mt-0.5">aiosqlite WAL</p>
+                                </div>
+                                <div class="bg-white border border-gray-200 p-2.5 rounded-xl text-[10px]">
+                                    <p class="font-bold text-slate-950">Google Gemini</p>
+                                    <p class="text-slate-800 text-[9px] font-bold mt-0.5">Vertex / AI Studio</p>
+                                </div>
+                                <div class="bg-white border border-gray-200 p-2.5 rounded-xl text-[10px]">
+                                    <p class="font-bold text-slate-955">Maps API</p>
+                                    <p class="text-slate-800 text-[9px] font-bold mt-0.5">Directions/JS Layers</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Final CTA Section -->
+    <section class="py-20 bg-white text-center">
+        <div class="max-w-4xl mx-auto px-6 space-y-6">
+            <h2 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                Experience the Next Generation of Venue Safety
+            </h2>
+            <p class="text-slate-800 text-lg font-semibold max-w-2xl mx-auto">
+                Launch our simulated environment now to see how real-time AI decision support mitigates critical risk, guides accessibility routing, and optimizes stadium movement.
+            </p>
+            <div class="flex justify-center gap-4 pt-4">
+                <a href="/login" class="px-8 py-4 rounded-full bg-google-blue hover:bg-google-blue-hover text-white font-bold transition-all shadow-md">
+                    Launch Interactive Demo
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-3">
+                <span class="text-xl">🏟️</span>
+                <span class="text-lg font-bold text-white tracking-tight">
+                    SmartStadium <span class="text-blue-400">AI</span>
+                </span>
+            </div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                Built with ❤️ for Next-Gen Venue Safety
+            </p>
+            <p class="text-xs text-slate-500">
+                &copy; 2026 SmartStadium AI. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Interactive Simulator Javascript Logic -->
+    <script>
+        // Simulation datasets strictly matching scenarios.py definitions
+        const simulatorData = {
+            normal: {
+                label: "Normal Flow (Low Risk)",
+                desc: "Balanced ingress with predictable wait times and no active incidents.",
+                services: ["Google Maps Embed", "Gemini Embeddings"],
+                waitBefore: "14 mins",
+                waitAfter: "8 mins",
+                waitBeforePct: 56,
+                waitAfterPct: 32,
+                densityBefore: "72%",
+                densityAfter: "44%",
+                densityBeforePct: 72,
+                densityAfterPct: 44,
+                evacBefore: "210 seconds",
+                evacAfter: "142 seconds",
+                announcement: "Operations stable. AI balancing keeps guest movement within target range."
+            },
+            peak_rush: {
+                label: "Peak Rush (High Risk)",
+                desc: "Kickoff pressure with sustained demand at ingress and concessions.",
+                services: ["Google Maps Embed", "Gemini Embeddings"],
+                waitBefore: "25 mins",
+                waitAfter: "14 mins",
+                waitBeforePct: 100,
+                waitAfterPct: 56,
+                densityBefore: "93%",
+                densityAfter: "68%",
+                densityBeforePct: 93,
+                densityAfterPct: 68,
+                evacBefore: "248 seconds",
+                evacAfter: "171 seconds",
+                announcement: "Peak rush is active. North Gate saturation is above comfort thresholds. Redirecting flow."
+            },
+            gate_closure: {
+                label: "Gate Closure (High Risk)",
+                desc: "One ingress route is closed, forcing rebalancing across alternate entries.",
+                services: ["Google Maps Embed", "Gemini Embeddings"],
+                waitBefore: "24 mins",
+                waitAfter: "13 mins",
+                waitBeforePct: 96,
+                waitAfterPct: 52,
+                densityBefore: "91%",
+                densityAfter: "61%",
+                densityBeforePct: 91,
+                densityAfterPct: 61,
+                evacBefore: "236 seconds",
+                evacAfter: "162 seconds",
+                announcement: "Gate A closed for inspection. Guests are being rerouted to Gate C and East Entry."
+            },
+            weather_delay: {
+                label: "Weather Delay (Medium Risk)",
+                desc: "Rain and lightning delay increases indoor crowding and shelter demand.",
+                services: ["Google Maps Embed", "Gemini Embeddings", "Weather-compatible planning"],
+                waitBefore: "21 mins",
+                waitAfter: "12 mins",
+                waitBeforePct: 84,
+                waitAfterPct: 48,
+                densityBefore: "89%",
+                densityAfter: "62%",
+                densityBeforePct: 89,
+                densityAfterPct: 62,
+                evacBefore: "220 seconds",
+                evacAfter: "158 seconds",
+                announcement: "Weather Alert: Lightning in the area. Please move away from open seating and seek shelter."
+            },
+            suspicious_object: {
+                label: "Suspicious Object (Critical)",
+                desc: "Security isolation scenario requiring controlled rerouting and evidence preservation.",
+                services: ["Gemini API", "Gemini Embeddings"],
+                waitBefore: "23 mins",
+                waitAfter: "13 mins",
+                waitBeforePct: 92,
+                waitAfterPct: 52,
+                densityBefore: "90%",
+                densityAfter: "58%",
+                densityBeforePct: 90,
+                densityAfterPct: 58,
+                evacBefore: "230 seconds",
+                evacAfter: "146 seconds",
+                announcement: "Suspicious object investigation underway. Soft exclusion perimeter established in Concourse A."
+            }
+        };
+
+        function selectScenario(scenarioKey) {
+            // Update button styles
+            document.querySelectorAll('.scenario-btn').forEach(btn => {
+                btn.className = "scenario-btn w-full p-4 rounded-2xl border border-gray-200 bg-white hover:bg-gray-100 text-left transition-all shadow-sm";
+            });
+            const activeBtn = document.getElementById(`btn-${scenarioKey}`);
+            if (activeBtn) {
+                activeBtn.className = "scenario-btn w-full p-4 rounded-2xl border border-blue-500 bg-blue-50 text-left transition-all shadow-sm";
+            }
+
+            const data = simulatorData[scenarioKey];
+            if (!data) return;
+
+            // Update UI texts
+            document.getElementById('sim-scenario-label').innerText = data.label;
+            document.getElementById('sim-scenario-desc').innerText = data.desc;
+            document.getElementById('sim-wait-before').innerText = data.waitBefore;
+            document.getElementById('sim-wait-after').innerText = data.waitAfter;
+            document.getElementById('sim-density-before').innerText = data.densityBefore;
+            document.getElementById('sim-density-after').innerText = data.densityAfter;
+            document.getElementById('sim-evac-before').innerText = data.evacBefore;
+            document.getElementById('sim-evac-after').innerText = data.evacAfter;
+            document.getElementById('sim-announcement-text').innerText = `"${data.announcement}"`;
+
+            // Update bars
+            document.getElementById('sim-wait-before-bar').style.width = `${data.waitBeforePct}%`;
+            document.getElementById('sim-wait-after-bar').style.width = `${data.waitAfterPct}%`;
+            document.getElementById('sim-density-before-bar').style.width = `${data.densityBeforePct}%`;
+            document.getElementById('sim-density-after-bar').style.width = `${data.densityAfterPct}%`;
+
+            // Update service tags
+            const tagsContainer = document.getElementById('sim-services-tags');
+            tagsContainer.innerHTML = '';
+            data.services.forEach(service => {
+                const tag = document.createElement('span');
+                tag.className = "text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full";
+                tag.innerText = service;
+                tagsContainer.appendChild(tag);
+            });
+        }
+
+        // Initialize simulator on load
+        document.addEventListener('DOMContentLoaded', () => {
+            selectScenario('normal');
+        });
+    </script>
+</body>
+</html>

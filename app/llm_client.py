@@ -153,7 +153,7 @@ class GeminiService:
         prefix = "🚨 EMERGENCY" if scenario in ["suspicious_object", "medical_emergency"] else "ℹ️ Update"
         return AIResponse(
             narrative=f"{prefix}: {alert_msg}. Following standard safety protocols.",
-            accessibility_notes="All priority routes are open.",
+            accessibility_notes="All priority accessible routes are open.",
             suggested_route="Follow green markers to Gate A.",
             crowd_prediction="Stable flow.",
             recommended_gate="Gate A",

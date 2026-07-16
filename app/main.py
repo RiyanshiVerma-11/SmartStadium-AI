@@ -675,6 +675,15 @@ def get_decision_engine() -> DecisionEngine:
 
 
 @app.get("/", response_class=HTMLResponse)
+async def landing_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="landing.html",
+        context={"request": request, **get_template_context()},
+    )
+
+
+@app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse(
         request=request,
